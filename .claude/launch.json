@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cancraft-dev",
+      "runtimeExecutable": "C:\\CanCraft\\.claude\\dev-with-node.cmd",
+      "runtimeArgs": [],
+      "port": 3000
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+import type { EnquiryFieldErrors, EnquiryPayload } from "./types";
+import {
+  canSizeOptions,
+  formulationStatusOptions,
+  projectCategoryOptions,
+  projectStageOptions,
+  serviceOptions,
+} from "@/content/enquiryOptions";
+
+/**
+ * Single source of truth for enquiry validation — used by the client (per
+ * step and on final review) and re-run server-side in the API route.
+ * Client-side validation is a UX convenience only; the server never trusts
+ * it.
+ */
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Accepts digits, spaces, +, -, () — then requires at least 7 digits overall.
+const PHONE_ALLOWED_RE = /^[0-9+\-()\s]+$/;
+
+const categoryValues = new Set(projectCategoryOptions.map((o) => o.value));
+const stageValues = new Set(projectStageOptions.map((o) => o.value));
+const formulationValues = new Set(formulationStatusOptions.map((o) => o.value));
+const canSizeValues = new Set(canSizeOptions.map((o) => o.value));
+const serviceValues = new Set(serviceOptions.map((o) => o.value));
+
+function digitCount(value: string) {
+  return (value.match(/\d/g) ?? []).length;
+}
+
+/**
+ * Validates one step's worth of fields (or the whole payload). Pass the
+ * full payload and this returns every error currently present — callers
+ * that only care about one step filter by key prefix.
+ */
+export function validateEnquiry(payload: EnquiryPayload): EnquiryFieldErrors {
+  const errors: EnquiryFieldErrors = {};
+
+  if (!payload.project.category || !categoryValues.has(payload.project.category)) {
+    errors["project.category"] = "Select what you're making.";
+  }
+  if (!payload.project.stage || !stageValues.has(payload.project.stage)) {
+    errors["project.stage"] = "Select your project stage.";
+  }
+
+  if (!payload.formulation.status || !formulationValues.has(payload.formulation.status)) {
+    errors["formulation.status"] = "Let us know your formulation status.";
+  }
+
+  if (!payload.manufacturing.canSize || !canSizeValues.has(payload.manufacturing.canSize)) {
+    errors["manufacturing.canSize"] = "Select a preferred can size (or \"Not decided yet\").";
+  }
+
+  const name = payload.contact.name.trim();
+  if (!name) {
+    errors["contact.name"] = "Enter your name.";
+  } else if (name.length > 100) {
+    errors["contact.name"] = "Name is too long.";
+  }
+
+  const companyName = payload.contact.company.trim();
+  if (!companyName) {
+    errors["contact.company"] = "Enter your company or brand name.";
+  } else if (companyName.length > 100) {
+    errors["contact.company"] = "Company name is too long.";
+  }
+
+  const email = payload.contact.email.trim();
+  if (!email) {
+    errors["contact.email"] = "Enter your email address.";
+  } else if (email.length > 254 || !EMAIL_RE.test(email)) {
+    errors["contact.email"] = "Enter a valid email address.";
+  }
+
+  const phone = payload.contact.phone.trim();
+  if (!phone) {
+    errors["contact.phone"] = "Enter a phone or WhatsApp number.";
+  } else if (phone.length > 20 || !PHONE_ALLOWED_RE.test(phone) || digitCount(phone) < 7) {
+    errors["contact.phone"] = "Enter a valid phone number, including country code.";
+  }
+
+  return errors;
+}
+
+/**
+ * Coerces/clamps an arbitrary parsed JSON body into a well-formed
+ * EnquiryPayload before validation — the server never trusts the shape of
+ * client-sent JSON.
+ */
+export function sanitizeEnquiryPayload(input: unknown): EnquiryPayload {
+  const body = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const project = (body.project ?? {}) as Record<string, unknown>;
+  const formulation = (body.formulation ?? {}) as Record<string, unknown>;
+  const manufacturing = (body.manufacturing ?? {}) as Record<string, unknown>;
+  const contact = (body.contact ?? {}) as Record<string, unknown>;
+  const rawServices = Array.isArray(body.services) ? body.services : [];
+
+  const str = (v: unknown, max: number) =>
+    typeof v === "string" ? v.slice(0, max) : "";
+
+  return {
+    project: {
+      category: str(project.category, 60),
+      stage: str(project.stage, 60) as EnquiryPayload["project"]["stage"],
+      description: str(project.description, 1000),
+    },
+    formulation: {
+      status: str(formulation.status, 60) as EnquiryPayload["formulation"]["status"],
+    },
+    manufacturing: {
+      canSize: str(manufacturing.canSize, 20) as EnquiryPayload["manufacturing"]["canSize"],
+      expectedVolume: str(manufacturing.expectedVolume, 200),
+      launchTimeline: str(
+        manufacturing.launchTimeline,
+        30,
+      ) as EnquiryPayload["manufacturing"]["launchTimeline"],
+    },
+    services: rawServices
+      .filter((s): s is string => typeof s === "string" && serviceValues.has(s))
+      .slice(0, serviceValues.size),
+    // Identifying contact fields are clamped to a generous ceiling — well
+    // above the real limit validateEnquiry enforces (100/254/20) — rather
+    // than the real limit itself. Truncating exactly to the real limit here
+    // would silently corrupt (and successfully accept) oversized input
+    // instead of surfacing a "too long" validation error; the ceiling below
+    // only guards against pathological payload sizes.
+    contact: {
+      name: str(contact.name, 500),
+      company: str(contact.company, 500),
+      email: str(contact.email, 1000),
+      phone: str(contact.phone, 100),
+      additionalInfo: str(contact.additionalInfo, 1000),
+    },
+  };
+}
