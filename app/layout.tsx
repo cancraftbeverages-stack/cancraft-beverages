@@ -5,6 +5,8 @@ import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { MobileUtilityBar } from "@/components/layout/MobileUtilityBar";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { AttributionCapture } from "@/components/analytics/AttributionCapture";
+import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { company } from "@/content/company";
 import { SITE_URL } from "@/lib/site";
 
@@ -90,6 +92,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main id="main-content">{children}</main>
         <SiteFooter />
         <MobileUtilityBar />
+        <AttributionCapture />
+        <GoogleAnalytics measurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
       </body>
     </html>
   );

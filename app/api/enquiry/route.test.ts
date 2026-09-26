@@ -185,4 +185,71 @@ describe("POST /api/enquiry", () => {
     logSpy.mockRestore();
     errorSpy.mockRestore();
   });
+
+  describe("first-party attribution (lib/attribution/attribution.ts)", () => {
+    const touch = {
+      at: "2026-09-20T10:00:00.000Z",
+      landingPage: "/beverages/energy-drinks",
+      referrer: "https://www.google.com/",
+      utm_source: null,
+      utm_medium: null,
+      utm_campaign: null,
+      utm_term: null,
+    };
+    const attribution = {
+      firstTouch: touch,
+      lastTouch: { ...touch, at: "2026-09-21T08:00:00.000Z", referrer: "https://www.linkedin.com/" },
+      formPage: "/start-your-project",
+      formStart: {
+        at: "2026-09-21T08:05:00.000Z",
+        path: "/start-your-project",
+        sessionId: "11111111-2222-4333-8444-555555555555",
+      },
+    };
+
+    it("12. Scenario F: stores the attribution alongside unchanged business fields", async () => {
+      const res = await POST(request(validBody({ attribution })));
+      expect(res.status).toBe(200);
+      const saved = mockSave.mock.calls[0]![0] as Record<string, unknown>;
+      expect(saved.attribution).toEqual(attribution);
+      // The business enquiry fields are exactly what they were without attribution.
+      const { id: _a, submittedAt: _b, attribution: _c, ...fields } = saved;
+      expect(fields).toEqual(validBody());
+    });
+
+    it("13. accepts enquiries with no attribution exactly as before (no attribution key stored)", async () => {
+      const res = await POST(request(validBody()));
+      expect(res.status).toBe(200);
+      expect(mockSave.mock.calls[0]![0]).not.toHaveProperty("attribution");
+    });
+
+    it("14. malformed or personal attribution never fails the enquiry and is never stored", async () => {
+      const res = await POST(
+        request(
+          validBody({
+            attribution: {
+              firstTouch: { ...touch, utm_source: "jane@example.com", landingPage: "/?phone=+919999999999" },
+              lastTouch: "junk",
+              contact: { email: "jane@example.com" },
+            },
+          }),
+        ),
+      );
+      expect(res.status).toBe(200);
+      const saved = mockSave.mock.calls[0]![0] as { attribution?: unknown };
+      const text = JSON.stringify(saved.attribution);
+      expect(text).not.toContain("jane@example.com");
+      expect(text).not.toContain("919999999999");
+      expect(saved.attribution).toMatchObject({ firstTouch: { utm_source: null, landingPage: "/" }, lastTouch: null });
+    });
+
+    it("15. never logs attribution values", async () => {
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      await POST(request(validBody({ attribution })));
+      const logged = logSpy.mock.calls.flat().join(" ");
+      expect(logged).not.toContain("google.com");
+      expect(logged).not.toContain("linkedin.com");
+      logSpy.mockRestore();
+    });
+  });
 });

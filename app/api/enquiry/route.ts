@@ -4,6 +4,7 @@ import { resolveEnquiryId } from "@/lib/enquiry/id";
 import { enquiryStore } from "@/lib/enquiry/store";
 import { sendEnquiryNotification } from "@/lib/enquiry/email";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { sanitizeAttribution } from "@/lib/attribution/attribution";
 import type { StoredEnquiry } from "@/lib/enquiry/types";
 
 // Node.js runtime required — the store writes to Postgres (and, in local
@@ -54,10 +55,18 @@ export async function POST(request: Request) {
   const candidateId = raw && typeof raw === "object" ? (raw as Record<string, unknown>).id : undefined;
   const id = resolveEnquiryId(candidateId);
 
+  // Optional first-party attribution (lib/attribution/attribution.ts). Rebuilt from known
+  // fields only and never validated against — a missing or malformed
+  // attribution object can never fail an otherwise valid enquiry.
+  const attribution = sanitizeAttribution(
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>).attribution : undefined,
+  );
+
   const record: StoredEnquiry = {
     ...payload,
     id,
     submittedAt: new Date().toISOString(),
+    ...(attribution ? { attribution } : {}),
   };
 
   let saveResult;

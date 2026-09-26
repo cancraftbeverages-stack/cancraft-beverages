@@ -4,6 +4,8 @@
  * without changing its shape.
  */
 
+import type { EnquiryAttribution } from "@/lib/attribution/attribution";
+
 export type FormulationStatus =
   | "have-formulation"
   | "need-formulation"
@@ -60,6 +62,11 @@ export const emptyEnquiryPayload: EnquiryPayload = {
 export type StoredEnquiry = EnquiryPayload & {
   id: string;
   submittedAt: string;
+  /**
+   * First-party attribution captured by the browser (see lib/attribution/attribution.ts).
+   * Contains no contact details; absent when nothing was captured.
+   */
+  attribution?: EnquiryAttribution;
 };
 
 export type EnquiryFieldErrors = {

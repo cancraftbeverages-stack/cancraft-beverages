@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/Button";
 import { validateEnquiry } from "@/lib/enquiry/validate";
 import { emptyEnquiryPayload } from "@/lib/enquiry/types";
 import { easeConfident } from "@/lib/motion";
+import { currentAttribution, noteFormStart } from "@/lib/attribution/browser";
+import { noteEnquirySubmitted } from "@/lib/analytics/ga";
 import type { EnquiryFieldErrors, EnquiryFieldKey, EnquiryPayload } from "@/lib/enquiry/types";
 
 const stepLabels = [
@@ -71,19 +73,39 @@ export function EnquiryForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, errors]);
 
+  // form_start: recorded once, on the first change to any field — only a
+  // timestamp, the page path and a random session id; never a field value.
+  // noteFormStart() is itself idempotent per tab session; the ref just
+  // avoids touching storage on every keystroke.
+  const formStartedRef = useRef(false);
+  function markFormStarted() {
+    if (formStartedRef.current) return;
+    formStartedRef.current = true;
+    try {
+      noteFormStart();
+    } catch {
+      // Never let attribution interfere with filling in the form.
+    }
+  }
+
   function updateProject(patch: Partial<EnquiryPayload["project"]>) {
+    markFormStarted();
     setPayload((p) => ({ ...p, project: { ...p.project, ...patch } }));
   }
   function updateFormulation(patch: Partial<EnquiryPayload["formulation"]>) {
+    markFormStarted();
     setPayload((p) => ({ ...p, formulation: { ...p.formulation, ...patch } }));
   }
   function updateManufacturing(patch: Partial<EnquiryPayload["manufacturing"]>) {
+    markFormStarted();
     setPayload((p) => ({ ...p, manufacturing: { ...p.manufacturing, ...patch } }));
   }
   function updateServices(values: string[]) {
+    markFormStarted();
     setPayload((p) => ({ ...p, services: values }));
   }
   function updateContact(patch: Partial<EnquiryPayload["contact"]>) {
+    markFormStarted();
     setPayload((p) => ({ ...p, contact: { ...p.contact, ...patch } }));
   }
 
@@ -132,12 +154,14 @@ export function EnquiryForm() {
       const res = await fetch("/api/enquiry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, id: enquiryId }),
+        // Attribution travels only with the enquiry, to our own API (no third party).
+        body: JSON.stringify({ ...payload, id: enquiryId, attribution: currentAttribution() }),
       });
       const data = await res.json().catch(() => null);
 
       if (res.ok && data?.ok) {
         setReferenceId(data.id);
+        noteEnquirySubmitted(); // analytics event only (no payload); see lib/analytics/ga.ts
         setStatus("success");
         return;
       }
