@@ -13,7 +13,7 @@
  * production deployment, set this to the actual release date as "YYYY-MM-DD" (e.g. "2026-11-20").
  * Never substitute the build date.
  */
-export const PRIVATE_LABEL_VS_CONTRACT_PUBLISHED: string | null = null;
+export const PRIVATE_LABEL_VS_CONTRACT_PUBLISHED: string | null = "2026-11-13";
 
 export type Guide = {
   slug: string;
