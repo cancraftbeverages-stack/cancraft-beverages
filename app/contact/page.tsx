@@ -9,9 +9,9 @@ import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Contact",
+  absoluteTitle: "Contact CanCraft Beverages | Hapur, Uttar Pradesh",
   description:
-    "Contact CanCraft Beverages — call, WhatsApp or email our team in Dasna, Hapur, Uttar Pradesh to start a beverage manufacturing project.",
+    "Call, WhatsApp or email CanCraft Beverages in Hapur, Uttar Pradesh to discuss private label or contract beverage manufacturing.",
   path: "/contact",
 });
 
@@ -45,6 +45,17 @@ export default function ContactPage() {
                 →
               </span>
             </Link>
+          </p>
+          <p className="mt-3 max-w-2xl text-base leading-relaxed text-steel-600">
+            Read about{" "}
+            <Link href="/private-label" className="font-medium text-accent-600 hover:text-accent-500">
+              private label beverage manufacturing
+            </Link>{" "}
+            or{" "}
+            <Link href="/contract-manufacturing" className="font-medium text-accent-600 hover:text-accent-500">
+              contract manufacturing and co-packing
+            </Link>
+            .
           </p>
         </PageShell>
       </section>

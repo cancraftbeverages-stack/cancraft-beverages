@@ -1,5 +1,5 @@
 import { PageShell } from "@/components/layout/PageShell";
-import { Reveal, RevealGroup, RevealItem } from "@/components/ui/Reveal";
+import { RevealGroup, RevealItem } from "@/components/ui/Reveal";
 import { CallLink } from "@/components/ui/CallLink";
 import { WhatsAppLink } from "@/components/ui/WhatsAppLink";
 import { company } from "@/content/company";
@@ -73,12 +73,6 @@ export function ContactDetails() {
             );
           })}
         </RevealGroup>
-
-        <Reveal delay={0.1}>
-          <p className="mt-8 max-w-2xl text-sm leading-relaxed text-steel-600">
-            {company.commercial.leadTimeStatement}
-          </p>
-        </Reveal>
       </PageShell>
     </section>
   );

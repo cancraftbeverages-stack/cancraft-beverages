@@ -12,6 +12,7 @@ export function StepFormulation({ value, onChange, errors }: StepFormulationProp
   return (
     <RadioCardGroup
       legend="Do you already have a formulation?"
+      helperText="This helps us understand where your project stands. We'll confirm what we can support after reviewing your brief."
       name="formulation-status"
       options={formulationStatusOptions}
       value={value.status}

@@ -3,14 +3,15 @@
 import Image from "next/image";
 import { useRef } from "react";
 import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "framer-motion";
-import { Button } from "@/components/ui/Button";
+import { HeroCtas } from "@/components/marketing/ContentBlocks";
 import { PageShell } from "@/components/layout/PageShell";
 import { ProofStrip } from "@/components/marketing/ProofStrip";
 import { easeConfident } from "@/lib/motion";
 
 /**
- * Hero media layer — beverage-can manufacturing equipment (water
- * treatment/RO skid) representing CanCraft's production capability.
+ * Hero media layer — beverage manufacturing equipment (water treatment/RO
+ * skid). Alt text stays descriptive and makes no ownership or capability
+ * claim until photo provenance is confirmed.
  * Headline/CTA/proof strip live in a separate stacking layer above it.
  * `y`/`scale` drive a subtle scroll-linked parallax + zoom (no-op values
  * when reduced motion is preferred — see Hero()).
@@ -21,7 +22,7 @@ function HeroMedia({ y, scale }: { y: MotionValue<number>; scale: MotionValue<nu
       <motion.div className="absolute inset-0" style={{ y, scale }}>
         <Image
           src="/media/facility/hero-production.jpg"
-          alt="Beverage can manufacturing equipment at CanCraft"
+          alt="Beverage manufacturing equipment"
           fill
           priority
           sizes="100vw"
@@ -82,12 +83,12 @@ export function Hero() {
           transition={{ duration: 0.5, ease: easeConfident }}
           className="mb-5 text-xs font-semibold uppercase tracking-eyebrow text-accent-500"
         >
-          Beverage Manufacturing · Dasna, Hapur, Uttar Pradesh
+          Beverage manufacturing · Hapur, Uttar Pradesh
         </motion.p>
 
-        <h1 className="max-w-3xl font-display text-4xl font-medium leading-[1.05] sm:text-6xl lg:text-7xl">
-          <HeadlineLine delay={0.1}>Your Beverage.</HeadlineLine>
-          <HeadlineLine delay={0.22}>Our Manufacturing.</HeadlineLine>
+        <h1 className="max-w-4xl font-display text-4xl font-medium leading-[1.05] sm:text-5xl lg:text-6xl">
+          <HeadlineLine delay={0.1}>Private label and contract</HeadlineLine>
+          <HeadlineLine delay={0.22}>beverage manufacturing in India</HeadlineLine>
         </h1>
 
         <motion.p
@@ -97,8 +98,10 @@ export function Hero() {
           transition={{ duration: 0.6, ease: easeConfident, delay: 0.4 }}
           className="mt-6 max-w-xl text-lg leading-relaxed text-paper-50/85 sm:text-xl"
         >
-          Beverage development and contract manufacturing for startups, growing brands and
-          established businesses.
+          CanCraft Beverages LLP is an FSSAI-licensed beverage manufacturer in Hapur, Uttar
+          Pradesh. We&apos;re built for beverage entrepreneurs and established brands that need a
+          manufacturing partner. You can launch a drink under your own brand, or have us produce a
+          formulation you already own.
         </motion.p>
 
         <motion.div
@@ -106,14 +109,9 @@ export function Hero() {
           animate="visible"
           variants={entrance}
           transition={{ duration: 0.6, ease: easeConfident, delay: 0.48 }}
-          className="mt-9 flex flex-col gap-3 sm:flex-row"
+          className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap"
         >
-          <Button href="/start-your-project" size="lg">
-            Start Your Beverage Project
-          </Button>
-          <Button href="/capabilities" variant="secondary" size="lg">
-            Explore Capabilities
-          </Button>
+          <HeroCtas />
         </motion.div>
 
         <motion.div

@@ -1,35 +1,27 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { PageHero } from "@/components/marketing/PageHero";
-import { ServicePillars } from "@/components/marketing/ServicePillars";
-import { CapabilityStats } from "@/components/marketing/CapabilityStats";
 import { FinalCTA } from "@/components/marketing/FinalCTA";
-import { PageShell } from "@/components/layout/PageShell";
-import { SectionHeading } from "@/components/ui/SectionHeading";
-import { Reveal, RevealGroup, RevealItem } from "@/components/ui/Reveal";
-import { Button } from "@/components/ui/Button";
+import {
+  BulletList,
+  ContentSection,
+  FaqList,
+  HeroCtas,
+  LicensedCategoryList,
+  TextLink,
+} from "@/components/marketing/ContentBlocks";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
 import { pageMetadata } from "@/lib/seo";
 
+// Copy source: CanCraft-SEO-Phase-2.1/02-capabilities.md, published under its own gate: service
+// sections are held until service scope is confirmed, so only VERIFIED/GENERAL sections appear.
+// Held and omitted: formulation, sourcing, trial batches, packaging/storage/dispatch, regulatory
+// guidance, can line and line speed, carbonated non-caffeinated scope.
 export const metadata: Metadata = pageMetadata({
-  title: "Capabilities",
+  absoluteTitle: "Beverage Manufacturing Services in India | CanCraft",
   description:
-    "Beverage manufacturing capabilities: formulation, ingredient and can sourcing, filling, seaming, packaging, warehousing, logistics and regulatory support in Dasna, Hapur, Uttar Pradesh.",
+    "FSSAI-licensed beverage manufacturing in Hapur, Uttar Pradesh: carbonated and non-carbonated caffeinated beverages, and non-carbonated water-based drinks.",
   path: "/capabilities",
 });
-
-const engagementLinks = [
-  {
-    href: "/private-label",
-    title: "Private Label",
-    description: "Bring your brand, your concept, or launch under your own label — three ways to work with us.",
-  },
-  {
-    href: "/contract-manufacturing",
-    title: "Contract Manufacturing",
-    description: "Full contract production, from formulation through to dispatch, with no minimum order quantity.",
-  },
-];
 
 export default function CapabilitiesPage() {
   return (
@@ -42,57 +34,56 @@ export default function CapabilitiesPage() {
       />
       <PageHero
         eyebrow="Capabilities"
-        title={"Everything a beverage\nneeds to get made."}
-        supporting="Formulation, sourcing, filling, seaming, packaging, warehousing, logistics and regulatory support — one manufacturing partner, one can-line."
-        actions={
-          <>
-            <Button href="/start-your-project" size="lg">
-              Start Your Beverage Project
-            </Button>
-            <Button href="/beverages" variant="secondary" size="lg">
-              Explore Beverage Categories
-            </Button>
-          </>
-        }
+        title="Beverage manufacturing services"
+        supporting="CanCraft Beverages LLP is licensed to manufacture non-alcoholic beverages at its facility in Hapur, Uttar Pradesh."
+        actions={<HeroCtas />}
       />
 
-      <ServicePillars />
-      <CapabilityStats />
+      <ContentSection title="What our FSSAI licence covers">
+        <p>Our FSSAI licence covers:</p>
+        <LicensedCategoryList />
+        <p>
+          See <TextLink href="/beverages/carbonated">carbonated beverages</TextLink> and{" "}
+          <TextLink href="/beverages/non-carbonated">non-carbonated beverages</TextLink>, or{" "}
+          <TextLink href="/beverages">all beverages we manufacture</TextLink>.
+        </p>
+      </ContentSection>
 
-      <section className="bg-paper-50 py-20 lg:py-28">
-        <PageShell>
-          <Reveal>
-            <SectionHeading
-              eyebrow="Ways to work with us"
-              title="Private label or contract manufacturing."
-            />
-          </Reveal>
+      <ContentSection title="Private label or contract manufacturing?" tone="paper-alt">
+        <BulletList
+          items={[
+            <>
+              <strong className="font-medium text-ink-950">Private label:</strong> we manufacture a
+              beverage that you sell under your own brand.{" "}
+              <TextLink href="/private-label">Private label beverage manufacturing</TextLink>
+            </>,
+            <>
+              <strong className="font-medium text-ink-950">Contract manufacturing and co-packing:</strong>{" "}
+              you bring a finished formulation, and we produce it.{" "}
+              <TextLink href="/contract-manufacturing">Contract manufacturing and co-packing</TextLink>
+            </>,
+          ]}
+        />
+      </ContentSection>
 
-          <RevealGroup as="ul" className="mt-12 grid gap-5 sm:grid-cols-2">
-            {engagementLinks.map((link) => (
-              <RevealItem as="li" key={link.href}>
-                <Link
-                  href={link.href}
-                  className="group flex h-full flex-col justify-between rounded border border-steel-300/60 bg-white/40 p-8 transition-colors duration-standard ease-confident hover:border-accent-500/60"
-                >
-                  <div>
-                    <h3 className="font-display text-xl font-medium text-ink-950">
-                      {link.title}
-                    </h3>
-                    <p className="mt-2.5 text-sm leading-relaxed text-steel-600">
-                      {link.description}
-                    </p>
-                  </div>
-                  <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-accent-600 transition-transform duration-standard ease-confident group-hover:translate-x-0.5">
-                    Learn more
-                    <span aria-hidden="true">→</span>
-                  </span>
-                </Link>
-              </RevealItem>
-            ))}
-          </RevealGroup>
-        </PageShell>
-      </section>
+      <ContentSection title="Frequently asked questions">
+        <FaqList
+          items={[
+            {
+              q: "Which beverages can you manufacture?",
+              a: "Our FSSAI licence covers carbonated caffeinated, non-carbonated caffeinated and non-carbonated water-based beverages. Each product is reviewed for feasibility.",
+            },
+            {
+              q: "Do you manufacture dairy-based drinks?",
+              a: "No. Our licence covers beverages excluding dairy products.",
+            },
+            {
+              q: "Is your facility FSSAI licensed?",
+              a: "Yes. CanCraft Beverages LLP holds an FSSAI State licence for beverage manufacturing.",
+            },
+          ]}
+        />
+      </ContentSection>
 
       <FinalCTA />
     </>

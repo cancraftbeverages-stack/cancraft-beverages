@@ -43,11 +43,13 @@ export const capabilityStats: CapabilityStat[] = [
   },
 ];
 
+/**
+ * Hero key-fact row — verified facts only (FSSAI licence, licensed beverage types, location).
+ * Line speed, can sizes and MOQ are held and must not be added back without approval.
+ * (`capabilityStats` above is no longer rendered anywhere.)
+ */
 export const proofIndicators = [
-  `${company.productionLine.speedCansPerMinute} CANS/MIN`,
-  `${company.productionLine.canSizesMl[0]}–${
-    company.productionLine.canSizesMl[company.productionLine.canSizesMl.length - 1]
-  } ML`,
-  company.commercial.moqStatement.toUpperCase(),
-  "NCR, INDIA",
+  company.fssai.licenceType.toUpperCase(),
+  "CARBONATED & NON-CARBONATED BEVERAGES",
+  `${company.factory.district}, ${company.factory.state}`.toUpperCase(),
 ];

@@ -19,6 +19,7 @@ export function StepManufacturing({ value, onChange, errors }: StepManufacturing
     <div className="space-y-8">
       <RadioCardGroup
         legend="Preferred can size"
+        helperText="Tell us your preference. Available sizes are confirmed for each product during the feasibility review."
         name="manufacturing-can-size"
         options={canSizeOptions}
         value={value.canSize}
@@ -33,8 +34,8 @@ export function StepManufacturing({ value, onChange, errors }: StepManufacturing
         name="manufacturing-expected-volume"
         value={value.expectedVolume}
         onChange={(v) => onChange({ expectedVolume: v })}
-        placeholder="e.g. a trial batch, or 5,000 cans"
-        helperText="There's no minimum order — describe whatever you have in mind, including a trial batch."
+        placeholder="e.g. 5,000 cans per month"
+        helperText="An estimate is fine, for example cans per month or per batch."
         maxLength={200}
       />
 

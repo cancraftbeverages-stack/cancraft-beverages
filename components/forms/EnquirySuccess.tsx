@@ -20,9 +20,9 @@ export function EnquirySuccess({ referenceId }: EnquirySuccessProps) {
         Your project details have been recorded.
       </h2>
       <p className="mt-4 text-base leading-relaxed text-steel-600">
-        Thanks — we&apos;ve captured what you shared with us and notified our team. For the
-        fastest response, you can also reach us directly on WhatsApp or by phone. Otherwise,
-        we&apos;ll follow up using the contact details you provided.
+        Thanks, we&apos;ve received what you shared. For the fastest response, you can also reach
+        us directly on WhatsApp or by phone. Otherwise, we&apos;ll follow up using the contact
+        details you provided.
       </p>
       <p className="mt-2 text-xs text-steel-600">Reference: {referenceId}</p>
 

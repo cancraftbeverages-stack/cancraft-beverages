@@ -38,11 +38,11 @@ const displayFont = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${company.brandName} — Beverage Contract Manufacturing, ${company.factory.state}`,
+    default: `${company.brandName} | Private Label & Contract Manufacturing`,
     template: `%s — ${company.brandName}`,
   },
   description:
-    "Beverage development and contract manufacturing for startups, growing brands and established businesses. Can-format production in Dasna, Hapur, Uttar Pradesh. No MOQ.",
+    "Private label and contract beverage manufacturing from an FSSAI-licensed facility in Hapur, Uttar Pradesh.",
   robots: {
     index: true,
     follow: true,
@@ -50,8 +50,9 @@ export const metadata: Metadata = {
 };
 
 // Organization + WebSite structured data, sitewide — only verified facts.
-// No logo (no real logo asset yet), no sameAs (no confirmed social
-// profiles), no street address (only locality/region/country are verified).
+// No logo (official logo file not confirmed), no sameAs (no confirmed social
+// profiles), no foundingDate (not evidenced), no street address, PIN code or
+// licence number (public location is locality/region/country only).
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -60,7 +61,6 @@ const organizationJsonLd = {
   url: SITE_URL,
   email: company.contact.email,
   telephone: company.contact.phoneDisplay,
-  foundingDate: String(company.established),
   address: {
     "@type": "PostalAddress",
     addressLocality: company.factory.locality,

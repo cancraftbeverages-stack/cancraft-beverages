@@ -21,12 +21,26 @@ export const company = {
   brandName: "CanCraft Beverages",
   established: 2026,
 
+  // Public location wording follows the FSSAI licence (premises in Hapur district). Never add the
+  // street address, PIN code or licence number here or anywhere else on the site.
   factory: {
-    locality: "Dasna",
+    locality: "Hapur",
     district: "Hapur",
     state: "Uttar Pradesh",
     country: "India",
-    display: "Dasna, Hapur, Uttar Pradesh, India",
+    display: "Hapur, Uttar Pradesh, India",
+  },
+
+  // FSSAI licence scope as shown on the licence's Product Annexure (display wording only — the
+  // licence number is deliberately not stored). Carbonated non-caffeinated beverages are NOT on the
+  // annexure and must never be listed here or described as licensed until regulatory confirmation.
+  fssai: {
+    licenceType: "FSSAI State licence",
+    licensedCategories: [
+      "Carbonated caffeinated beverages",
+      "Non-carbonated caffeinated beverages",
+      "Non-carbonated water-based beverages",
+    ] as const,
   },
 
   contact: {
@@ -43,6 +57,9 @@ export const company = {
     productionAreaSqm: 500,
   },
 
+  // NOT RENDERED on marketing pages (held: line speed conflicts with the licence's declared capacity;
+  // can sizes unverified). Kept because canSizesMl feeds the enquiry form's can-size option values,
+  // which are a stored data contract (see content/formContract.test.ts).
   productionLine: {
     lineCount: 1,
     speedCansPerMinute: 120,
@@ -51,7 +68,8 @@ export const company = {
 
   ownBrand: {
     name: "INFINITY",
-    fullName: "INFINITY Energy Drink",
+    // No product descriptor until legal clearance on caffeinated-beverage naming.
+    fullName: "INFINITY",
     relationship: "A CanCraft brand.",
     href: "/infinity",
   },
@@ -62,6 +80,8 @@ export const company = {
     confirmed: ["FSSAI"] as const,
   },
 
+  // NOT RENDERED (held pending a written MOQ / lead-time policy and service-scope confirmation).
+  // `services` below also feeds the enquiry form's service values — do not edit those labels.
   commercial: {
     moqStatement: "No MOQ",
     trialBatchesSupported: true,

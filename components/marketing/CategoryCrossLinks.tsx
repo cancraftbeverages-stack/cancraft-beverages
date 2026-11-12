@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageShell } from "@/components/layout/PageShell";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { Reveal, RevealGroup, RevealItem } from "@/components/ui/Reveal";
-import { beverageCategories } from "@/content/beverageCategories";
+import { listedBeverageCategories as beverageCategories } from "@/content/beverageCategories";
 
 type CategoryCrossLinksProps = {
   /** Slug to exclude — the category page this is rendered on. */

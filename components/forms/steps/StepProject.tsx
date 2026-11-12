@@ -14,6 +14,7 @@ export function StepProject({ value, onChange, errors }: StepProjectProps) {
     <div className="space-y-8">
       <RadioCardGroup
         legend="What are you making?"
+        helperText="Choose the closest match. Choosing a category isn't a commitment: every product is reviewed for feasibility and licensing before we confirm we can take it on."
         name="project-category"
         options={projectCategoryOptions}
         value={value.category}

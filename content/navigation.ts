@@ -9,8 +9,9 @@ export const primaryNav: NavLink[] = [
   { label: "Beverages", href: "/beverages" },
   { label: "Private Label", href: "/private-label" },
   { label: "Contract Manufacturing", href: "/contract-manufacturing" },
+  { label: "Resources", href: "/resources" },
   { label: "About", href: "/about" },
-  { label: "INFINITY", href: "/infinity" },
+  // INFINITY is linked from the footer only while its page is held.
   { label: "Contact", href: "/contact" },
 ];
 

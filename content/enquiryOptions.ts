@@ -34,17 +34,17 @@ export const formulationStatusOptions: {
   {
     value: "have-formulation",
     label: "Yes — I have a formulation",
-    description: "Your recipe is ready; we manufacture to it.",
+    description: "Your recipe is ready for production.",
   },
   {
     value: "need-formulation",
     label: "No — I need formulation support",
-    description: "We develop the formulation with you.",
+    description: "You don't have a formulation yet.",
   },
   {
     value: "need-help-developing",
     label: "I have an idea and need help developing it",
-    description: "We refine your concept into a workable formulation.",
+    description: "You have a concept that still needs a formulation.",
   },
 ];
 

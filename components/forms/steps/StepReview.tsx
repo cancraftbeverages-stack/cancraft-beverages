@@ -108,8 +108,8 @@ export function StepReview({ payload, onEditStep }: StepReviewProps) {
       ))}
 
       <p className="text-xs leading-relaxed text-steel-600">
-        Submitting records your project details in our system and notifies our team by email.
-        For the fastest response, you can also reach us on WhatsApp or by phone below.
+        Submitting sends your project details to CanCraft. For the fastest response, you can also
+        reach us on WhatsApp or by phone below.
       </p>
     </div>
   );

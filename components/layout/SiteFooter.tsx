@@ -1,7 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { company } from "@/content/company";
-import { beverageCategories } from "@/content/beverageCategories";
+// Footer beverage links point to the hubs only. The existing /beverages/{category} routes are held
+// (content/beverageCategories.ts) and deliberately not linked sitewide.
+const beverageLinks = [
+  { label: "Carbonated beverages", href: "/beverages/carbonated" },
+  { label: "Non-carbonated beverages", href: "/beverages/non-carbonated" },
+  { label: "All beverages", href: "/beverages" },
+  { label: "Guides for founders", href: "/resources" },
+];
 import { primaryNav, startProjectHref } from "@/content/navigation";
 import { Button } from "@/components/ui/Button";
 
@@ -57,13 +64,10 @@ export function SiteFooter() {
               Beverages
             </p>
             <ul className="mt-4 space-y-2.5">
-              {beverageCategories.map((category) => (
-                <li key={category.slug}>
-                  <Link
-                    href={category.href}
-                    className="text-sm text-steel-300 hover:text-accent-500"
-                  >
-                    {category.name}
+              {beverageLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="text-sm text-steel-300 hover:text-accent-500">
+                    {link.label}
                   </Link>
                 </li>
               ))}
@@ -101,11 +105,7 @@ export function SiteFooter() {
               Quality
             </p>
             <ul className="mt-4 space-y-2.5">
-              {company.certifications.confirmed.map((cert) => (
-                <li key={cert} className="text-sm text-steel-300">
-                  {cert} confirmed
-                </li>
-              ))}
+              <li className="text-sm text-steel-300">{company.fssai.licenceType}</li>
             </ul>
           </div>
         </div>
