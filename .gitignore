@@ -38,3 +38,5 @@ yarn-error.log*
 # session-local lock files created by the Claude Code harness — tied to a
 # specific machine/session PID, meaningless (and stale) anywhere else
 .claude/*.lock
+
+.vercel
