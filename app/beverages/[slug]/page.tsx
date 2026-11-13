@@ -8,8 +8,9 @@ import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
 import { beverageCategories, getBeverageCategory } from "@/content/beverageCategories";
 import { pageMetadata } from "@/lib/seo";
 
+// Next.js 15: route params are delivered as a Promise.
 type CategoryPageProps = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
 // Every existing category route stays live (no deletion, no redirect). While a category is held
@@ -22,8 +23,9 @@ export function generateStaticParams() {
   return beverageCategories.map((category) => ({ slug: category.slug }));
 }
 
-export function generateMetadata({ params }: CategoryPageProps): Metadata {
-  const category = getBeverageCategory(params.slug);
+export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const category = getBeverageCategory(slug);
   if (!category) return {};
 
   return pageMetadata({
@@ -34,8 +36,9 @@ export function generateMetadata({ params }: CategoryPageProps): Metadata {
   });
 }
 
-export default function BeverageCategoryPage({ params }: CategoryPageProps) {
-  const category = getBeverageCategory(params.slug);
+export default async function BeverageCategoryPage({ params }: CategoryPageProps) {
+  const { slug } = await params;
+  const category = getBeverageCategory(slug);
   if (!category) notFound();
 
   // Carbonated caffeinated beverages are on the licence annexure; link that page to its hub.
