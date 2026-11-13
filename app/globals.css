@@ -35,7 +35,45 @@
   }
 }
 
+/*
+ * Above-the-fold hero entrances (Batch 1.1). CSS-only so they start at first paint instead of
+ * waiting for JavaScript hydration, and transform-only (no opacity fade) so the hero text counts as
+ * painted immediately — previously a Framer Motion `initial="hidden"` (opacity:0) state was
+ * server-rendered and delayed Largest Contentful Paint until hydration + animation.
+ * Below-the-fold sections keep the existing <Reveal> scroll animation.
+ */
+@keyframes hero-rise {
+  from {
+    transform: translateY(16px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes hero-curtain {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
 @layer utilities {
+  .hero-rise {
+    animation: hero-rise 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .hero-curtain {
+    animation: hero-curtain 750ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-rise,
+    .hero-curtain {
+      animation: none;
+    }
+  }
+
   .no-scrollbar {
     scrollbar-width: none;
     -ms-overflow-style: none;

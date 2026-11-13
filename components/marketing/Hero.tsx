@@ -1,12 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "framer-motion";
 import { HeroCtas } from "@/components/marketing/ContentBlocks";
 import { PageShell } from "@/components/layout/PageShell";
 import { ProofStrip } from "@/components/marketing/ProofStrip";
-import { easeConfident } from "@/lib/motion";
 
 /**
  * Hero media layer — beverage manufacturing equipment (water treatment/RO
@@ -34,21 +33,19 @@ function HeroMedia({ y, scale }: { y: MotionValue<number>; scale: MotionValue<nu
   );
 }
 
+/** Entrance delay for the CSS hero animations (app/globals.css: .hero-rise / .hero-curtain). */
+const delay = (ms: number): CSSProperties => ({ animationDelay: `${ms}ms` });
+
 /** One line of the headline, masked so it rises up from below like a curtain
- * lifting — the hero's one deliberately bold entrance moment; everything
- * else on the page uses the quieter shared fade+rise. */
-function HeadlineLine({ children, delay }: { children: string; delay: number }) {
-  const prefersReducedMotion = useReducedMotion();
+ * lifting — the hero's one deliberately bold entrance moment. CSS-driven so it
+ * starts at first paint rather than after hydration; disabled under
+ * prefers-reduced-motion (app/globals.css). */
+function HeadlineLine({ children, delayMs }: { children: string; delayMs: number }) {
   return (
     <span className="block overflow-hidden">
-      <motion.span
-        className="block"
-        initial={{ y: prefersReducedMotion ? 0 : "100%" }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.75, ease: easeConfident, delay }}
-      >
+      <span className="hero-curtain block" style={delay(delayMs)}>
         {children}
-      </motion.span>
+      </span>
     </span>
   );
 }
@@ -63,11 +60,8 @@ export function Hero() {
   const y = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, 110]);
   const scale = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [1, 1] : [1, 1.15]);
 
-  const entrance = {
-    hidden: { opacity: 0, y: prefersReducedMotion ? 0 : 16 },
-    visible: { opacity: 1, y: 0 },
-  };
-
+  // Entrance: CSS transform-only rise (.hero-rise), staggered as before (0 / 400 / 480 / 560 ms).
+  // Text is visible from first paint — no opacity:0 server-rendered state.
   return (
     <section
       ref={sectionRef}
@@ -76,53 +70,32 @@ export function Hero() {
       <HeroMedia y={y} scale={scale} />
 
       <PageShell className="relative flex min-h-[88vh] flex-col justify-end pb-16 pt-40 sm:min-h-[92vh] lg:pt-48">
-        <motion.p
-          initial="hidden"
-          animate="visible"
-          variants={entrance}
-          transition={{ duration: 0.5, ease: easeConfident }}
-          className="mb-5 text-xs font-semibold uppercase tracking-eyebrow text-accent-500"
-        >
+        <p className="hero-rise mb-5 text-xs font-semibold uppercase tracking-eyebrow text-accent-500">
           Beverage manufacturing · Hapur, Uttar Pradesh
-        </motion.p>
+        </p>
 
         <h1 className="max-w-4xl font-display text-4xl font-medium leading-[1.05] sm:text-5xl lg:text-6xl">
-          <HeadlineLine delay={0.1}>Private label and contract</HeadlineLine>
-          <HeadlineLine delay={0.22}>beverage manufacturing in India</HeadlineLine>
+          <HeadlineLine delayMs={100}>Private label and contract</HeadlineLine>
+          <HeadlineLine delayMs={220}>beverage manufacturing in India</HeadlineLine>
         </h1>
 
-        <motion.p
-          initial="hidden"
-          animate="visible"
-          variants={entrance}
-          transition={{ duration: 0.6, ease: easeConfident, delay: 0.4 }}
-          className="mt-6 max-w-xl text-lg leading-relaxed text-paper-50/85 sm:text-xl"
+        <p
+          className="hero-rise mt-6 max-w-xl text-lg leading-relaxed text-paper-50/85 sm:text-xl"
+          style={delay(400)}
         >
           CanCraft Beverages LLP is an FSSAI-licensed beverage manufacturer in Hapur, Uttar
           Pradesh. We&apos;re built for beverage entrepreneurs and established brands that need a
           manufacturing partner. You can launch a drink under your own brand, or have us produce a
           formulation you already own.
-        </motion.p>
+        </p>
 
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={entrance}
-          transition={{ duration: 0.6, ease: easeConfident, delay: 0.48 }}
-          className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap"
-        >
+        <div className="hero-rise mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap" style={delay(480)}>
           <HeroCtas />
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={entrance}
-          transition={{ duration: 0.6, ease: easeConfident, delay: 0.56 }}
-          className="mt-14"
-        >
+        <div className="hero-rise mt-14" style={delay(560)}>
           <ProofStrip />
-        </motion.div>
+        </div>
       </PageShell>
     </section>
   );

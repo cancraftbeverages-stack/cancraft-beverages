@@ -9,11 +9,15 @@
  * PUBLICATION DATE CONTROL — set immediately before the production release.
  *
  * `null` = not yet published: the guide renders no datePublished/dateModified in its Article
- * structured data and no lastmod in sitemap.xml, so no fictional date is shown. Before running the
- * production deployment, set this to the actual release date as "YYYY-MM-DD" (e.g. "2026-11-20").
- * Never substitute the build date.
+ * structured data and no lastmod in sitemap.xml, so no fictional date is shown. When publishing,
+ * set the actual first-publication moment as an ISO 8601 datetime with a time-zone offset
+ * (e.g. "2026-11-20T10:00:00+05:30") — Google flags date-only values. Never substitute the build
+ * date.
+ *
+ * 2026-11-13T03:31:07+05:30 is the verified moment this guide first went live: Vercel deployment
+ * dpl_2BxFJHCJPD9E28b9D9VUtCS74cFx became ready at 2026-11-12T22:01:07Z.
  */
-export const PRIVATE_LABEL_VS_CONTRACT_PUBLISHED: string | null = "2026-11-13";
+export const PRIVATE_LABEL_VS_CONTRACT_PUBLISHED: string | null = "2026-11-13T03:31:07+05:30";
 
 export type Guide = {
   slug: string;
@@ -21,7 +25,7 @@ export type Guide = {
   title: string;
   description: string;
   summary: string;
-  /** Controlled publication date ("YYYY-MM-DD"), or null until it is set for release. */
+  /** Controlled publication datetime (ISO 8601 with time-zone offset), or null until published. */
   datePublished: string | null;
 };
 

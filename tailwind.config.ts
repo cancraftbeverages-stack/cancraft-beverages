@@ -33,6 +33,10 @@ const config: Config = {
           100: "#F3DCC7",
           500: "#C9601E",
           600: "#A84E17",
+          // Primary button background only: same hue/saturation as accent-500, slightly darker so
+          // white button text meets WCAG AA (4.66:1; accent-500 is 4.06:1). accent-500 itself is
+          // unchanged because it is also used as text on dark backgrounds.
+          cta: "#B9591C",
         },
         champagne: {
           500: "#C9A46A",
