@@ -364,4 +364,68 @@ describe("POST /api/enquiry", () => {
       expect(mockReportFailure.mock.calls.map((c) => c[0])).toEqual(["mark_notified"]);
     });
   });
+
+  describe("unsupported hidden characters (security fix for the B-prime finding)", () => {
+    const ID = "2f0e6f1a-4b8b-4c1a-9c2e-1a2b3c4d5e6f";
+    afterEach(() => vi.restoreAllMocks());
+
+    it("24. original failure scenario: a NUL in the description is a 400 field error; nothing is saved, alerted or reported", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const description = "INTERNAL TEST\u0000";
+      expect(description.charCodeAt(description.length - 1)).toBe(0); // the test really sends a NUL
+      const body = validBody({ id: ID, project: { category: "other", stage: "idea", description } });
+      const res = await POST(request(body));
+      const data = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(data.ok).toBe(false);
+      expect(Object.keys(data.errors)).toEqual(["project.description"]);
+      expect(data.errors["project.description"]).toMatch(/unsupported hidden characters/);
+      expect(mockSave).not.toHaveBeenCalled();
+      expect(mockSendEnquiryNotification).not.toHaveBeenCalled();
+      expect(mockSendFailureAlert).not.toHaveBeenCalled();
+      expect(mockReportFailure).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(JSON.stringify(data)).not.toContain("INTERNAL TEST");
+    });
+
+    it("25. an unpaired surrogate in a contact field is also a 400, never a 500", async () => {
+      const additionalInfo = "broken \uD83D";
+      expect(additionalInfo.charCodeAt(additionalInfo.length - 1)).toBe(0xd83d);
+      const res = await POST(request(validBody({ contact: { ...validBody().contact, additionalInfo } })));
+      expect(res.status).toBe(400);
+      expect(Object.keys((await res.json()).errors)).toEqual(["contact.additionalInfo"]);
+      expect(mockSave).not.toHaveBeenCalled();
+      expect(mockSendFailureAlert).not.toHaveBeenCalled();
+    });
+
+    it("26. an unstorable UTM value in attribution is dropped; the enquiry itself still succeeds", async () => {
+      const touch = {
+        at: "2026-11-14T10:00:00.000Z",
+        landingPage: "/",
+        referrer: null,
+        utm_source: "x\uD800",
+        utm_medium: "cpc\u0000",
+        utm_campaign: "launch",
+        utm_term: null,
+      };
+      const res = await POST(request(validBody({ attribution: { firstTouch: touch, lastTouch: touch, formPage: "/start-your-project" } })));
+      expect(res.status).toBe(200);
+      const saved = mockSave.mock.calls[0]![0] as { attribution: { firstTouch: Record<string, unknown> } };
+      expect(saved.attribution.firstTouch).toMatchObject({ utm_source: null, utm_medium: null, utm_campaign: "launch" });
+      const json = JSON.stringify(saved);
+      expect(json).not.toContain("\\u0000");
+      expect(json).not.toMatch(/\\ud8/i);
+    });
+
+    it("27. Hindi, emoji, tabs and line breaks are accepted and stored unchanged", async () => {
+      const description = "हम आम का ड्रिंक बनाना चाहते हैं 🥭\nदूसरी पंक्ति\tटैब क्‍ष";
+      const contact = { ...validBody().contact, name: "राहुल शर्मा", company: "शर्मा बेवरेजेज़", additionalInfo: "धन्यवाद!\r\nThanks" };
+      const res = await POST(request(validBody({ project: { category: "other", stage: "idea", description }, contact })));
+      expect(res.status).toBe(200);
+      const saved = mockSave.mock.calls[0]![0] as { project: { description: string }; contact: typeof contact };
+      expect(saved.project.description).toBe(description);
+      expect(saved.contact).toEqual(contact);
+    });
+  });
 });

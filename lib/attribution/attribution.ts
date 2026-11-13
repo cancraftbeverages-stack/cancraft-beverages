@@ -12,6 +12,8 @@
  * (`attribution: { firstTouch, lastTouch, formPage }`).
  */
 
+import { hasUnsupportedCharacters } from "../text/unsupportedCharacters";
+
 export type Touch = {
   /** ISO timestamp of the page view that created this touch. */
   at: string;
@@ -66,12 +68,19 @@ const MAX_VALUE = 100;
 const MAX_PATH = 200;
 
 /**
- * Rejects values that could carry personal data: anything with "@" (emails),
- * a run of 7+ digits (phone numbers), or control characters. Such a value is
- * dropped (null), never stored.
+ * Rejects values that could carry personal data or cannot be stored: anything
+ * with "@" (emails), a run of 7+ digits (phone numbers), any control character
+ * (including tab and line breaks, which never belong in a UTM value or path)
+ * or an unpaired surrogate. Such a value is dropped (null), never stored.
+ * The character rule is shared with enquiry validation
+ * (lib/text/unsupportedCharacters.ts).
  */
 export function looksPersonal(value: string): boolean {
-  return /@/.test(value) || /\d[\d\s().-]{6,}\d/.test(value) || /[\u0000-\u001f]/.test(value);
+  return (
+    /@/.test(value) ||
+    /\d[\d\s().-]{6,}\d/.test(value) ||
+    hasUnsupportedCharacters(value, { allowTabsAndLineBreaks: false })
+  );
 }
 
 export function cleanValue(value: unknown): string | null {

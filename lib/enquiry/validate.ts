@@ -1,4 +1,5 @@
 import type { EnquiryFieldErrors, EnquiryPayload } from "./types";
+import { hasUnsupportedCharacters } from "@/lib/text/unsupportedCharacters";
 import {
   canSizeOptions,
   formulationStatusOptions,
@@ -29,6 +30,14 @@ function digitCount(value: string) {
 }
 
 /**
+ * Hidden control characters and broken Unicode cannot be stored (see
+ * lib/text/unsupportedCharacters.ts). The value is rejected with a field
+ * error rather than altered, so the visitor's text is never silently changed.
+ */
+const unsupportedCharacters = (label: string) =>
+  `${label} contains unsupported hidden characters. Please retype it.`;
+
+/**
  * Validates one step's worth of fields (or the whole payload). Pass the
  * full payload and this returns every error currently present — callers
  * that only care about one step filter by key prefix.
@@ -51,11 +60,28 @@ export function validateEnquiry(payload: EnquiryPayload): EnquiryFieldErrors {
     errors["manufacturing.canSize"] = "Select a preferred can size (or \"Not decided yet\").";
   }
 
+  // Optional free text: no content rules, only the unsupported-character check.
+  if (hasUnsupportedCharacters(payload.project.description)) {
+    errors["project.description"] = unsupportedCharacters("Project description");
+  }
+  if (hasUnsupportedCharacters(payload.manufacturing.expectedVolume)) {
+    errors["manufacturing.expectedVolume"] = unsupportedCharacters("Expected volume");
+  }
+  // Chosen from a fixed list in the form; only a crafted request can carry these.
+  if (hasUnsupportedCharacters(payload.manufacturing.launchTimeline)) {
+    errors["manufacturing.launchTimeline"] = unsupportedCharacters("Launch timeline");
+  }
+  if (hasUnsupportedCharacters(payload.contact.additionalInfo)) {
+    errors["contact.additionalInfo"] = unsupportedCharacters("Additional information");
+  }
+
   const name = payload.contact.name.trim();
   if (!name) {
     errors["contact.name"] = "Enter your name.";
   } else if (name.length > 100) {
     errors["contact.name"] = "Name is too long.";
+  } else if (hasUnsupportedCharacters(payload.contact.name)) {
+    errors["contact.name"] = unsupportedCharacters("Name");
   }
 
   const companyName = payload.contact.company.trim();
@@ -63,18 +89,26 @@ export function validateEnquiry(payload: EnquiryPayload): EnquiryFieldErrors {
     errors["contact.company"] = "Enter your company or brand name.";
   } else if (companyName.length > 100) {
     errors["contact.company"] = "Company name is too long.";
+  } else if (hasUnsupportedCharacters(payload.contact.company)) {
+    errors["contact.company"] = unsupportedCharacters("Company name");
   }
 
   const email = payload.contact.email.trim();
   if (!email) {
     errors["contact.email"] = "Enter your email address.";
+  } else if (hasUnsupportedCharacters(payload.contact.email)) {
+    errors["contact.email"] = unsupportedCharacters("Email address");
   } else if (email.length > 254 || !EMAIL_RE.test(email)) {
     errors["contact.email"] = "Enter a valid email address.";
   }
 
+  // PHONE_ALLOWED_RE's \s also matches vertical tab and form feed, so the
+  // shared check runs here too.
   const phone = payload.contact.phone.trim();
   if (!phone) {
     errors["contact.phone"] = "Enter a phone or WhatsApp number.";
+  } else if (hasUnsupportedCharacters(payload.contact.phone)) {
+    errors["contact.phone"] = unsupportedCharacters("Phone number");
   } else if (phone.length > 20 || !PHONE_ALLOWED_RE.test(phone) || digitCount(phone) < 7) {
     errors["contact.phone"] = "Enter a valid phone number, including country code.";
   }

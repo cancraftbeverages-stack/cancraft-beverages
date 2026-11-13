@@ -180,3 +180,42 @@ describe("enquiry payload", () => {
     expect(sanitizeAttribution({ firstTouch: null, lastTouch: null, formPage: null, formStart: null })).toBeNull();
   });
 });
+
+describe("unsupported characters in attribution (shared rule with enquiry validation)", () => {
+  it.each(["\u0000", "\t", "\n", "\r", "\u001F", "\u007F", "\uD800", "\uDFFF"])(
+    "drops a UTM value containing %j",
+    (ch) => {
+      expect(cleanValue(`google${ch}ads`)).toBeNull();
+    },
+  );
+
+  it("keeps Unicode campaign names", () => {
+    expect(cleanValue("दिवाली_sale")).toBe("दिवाली_sale");
+    expect(cleanValue("été-2026")).toBe("été-2026");
+  });
+
+  it("server-side sanitizing drops only the bad value and keeps the rest of the attribution", () => {
+    const touch = {
+      at: "2026-11-14T10:00:00.000Z",
+      landingPage: "/private-label",
+      referrer: "https://www.google.com/search?q=x",
+      utm_source: "google\uD800",
+      utm_medium: "cpc\u0000",
+      utm_campaign: "launch",
+      utm_term: null,
+    };
+    const out = sanitizeAttribution({ firstTouch: touch, lastTouch: touch, formPage: "/start-your-project" });
+    expect(out?.firstTouch).toEqual({
+      at: touch.at,
+      landingPage: "/private-label",
+      referrer: "https://www.google.com/",
+      utm_source: null,
+      utm_medium: null,
+      utm_campaign: "launch",
+      utm_term: null,
+    });
+    const json = JSON.stringify(out);
+    expect(json).not.toMatch(/\\u0000/);
+    expect(json).not.toMatch(/\\ud[89a-f][0-9a-f]{2}/i);
+  });
+});

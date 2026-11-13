@@ -78,6 +78,12 @@ export type EnquiryFieldErrors = {
   "contact.company"?: string;
   "contact.email"?: string;
   "contact.phone"?: string;
+  // Optional free-text fields: an error is only ever raised for unsupported
+  // hidden characters (lib/text/unsupportedCharacters.ts), never for content.
+  "project.description"?: string;
+  "manufacturing.expectedVolume"?: string;
+  "manufacturing.launchTimeline"?: string;
+  "contact.additionalInfo"?: string;
 };
 
 export type EnquiryFieldKey = keyof EnquiryFieldErrors;

@@ -245,3 +245,41 @@ describe("EnquiryForm conversion tracking", () => {
     expect(body.contact).toMatchObject({ name: FAKE_CONTACT.name, email: FAKE_CONTACT.email });
   });
 });
+
+describe("EnquiryForm unsupported hidden characters", () => {
+  async function typeDescription(value: string) {
+    const area = container.querySelector<HTMLTextAreaElement>('textarea[name="project-description"]');
+    if (!area) throw new Error(`no description field on step "${heading()}"`);
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!;
+    await act(async () => {
+      setter.call(area, value);
+      area.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(area.value).toBe(value);
+  }
+
+  it("a hidden control character in the description shows an error on step 1 and blocks Continue; nothing is sent", async () => {
+    await render();
+    await choose("project-category-other");
+    await choose("project-stage-idea");
+    await typeDescription("Mango drink\u0000");
+    await pressPrimary("Continue");
+
+    expect(heading()).toBe("Beverage / Project");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Project description contains unsupported hidden characters. Please retype it.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("Hindi text with line breaks in the description is accepted and the form moves on", async () => {
+    await render();
+    await choose("project-category-other");
+    await choose("project-stage-idea");
+    await typeDescription("आम का एनर्जी ड्रिंक\nदूसरी पंक्ति 🥭");
+    await pressPrimary("Continue");
+
+    expect(heading()).toBe("Formulation");
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+});

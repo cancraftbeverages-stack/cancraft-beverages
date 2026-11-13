@@ -29,11 +29,11 @@ const stepLabels = [
 ];
 
 const stepFieldKeys: EnquiryFieldKey[][] = [
-  ["project.category", "project.stage"],
+  ["project.category", "project.stage", "project.description"],
   ["formulation.status"],
-  ["manufacturing.canSize"],
+  ["manufacturing.canSize", "manufacturing.expectedVolume", "manufacturing.launchTimeline"],
   [],
-  ["contact.name", "contact.company", "contact.email", "contact.phone"],
+  ["contact.name", "contact.company", "contact.email", "contact.phone", "contact.additionalInfo"],
   [],
 ];
 

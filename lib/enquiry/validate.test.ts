@@ -111,3 +111,89 @@ describe("sanitizeEnquiryPayload", () => {
     expect(result.services).toEqual(["Can sourcing"]);
   });
 });
+
+describe("unsupported hidden characters (control characters, broken Unicode)", () => {
+  type Edit = (p: EnquiryPayload, value: string) => void;
+  const fields: Array<[key: string, edit: Edit]> = [
+    ["project.description", (p, v) => (p.project.description = v)],
+    ["manufacturing.expectedVolume", (p, v) => (p.manufacturing.expectedVolume = v)],
+    ["manufacturing.launchTimeline", (p, v) => (p.manufacturing.launchTimeline = v as never)],
+    ["contact.additionalInfo", (p, v) => (p.contact.additionalInfo = v)],
+    ["contact.name", (p, v) => (p.contact.name = `Jane${v}Doe`)],
+    ["contact.company", (p, v) => (p.contact.company = `Test${v}Co`)],
+    ["contact.email", (p, v) => (p.contact.email = `jane${v}@example.com`)],
+    ["contact.phone", (p, v) => (p.contact.phone = `+91${v}9999999999`)],
+  ];
+
+  it.each(fields)("rejects a null character in %s with an error for that field only", (key, edit) => {
+    const p = validPayload();
+    edit(p, "\u0000");
+    const errors = validateEnquiry(p) as Record<string, string>;
+    expect(Object.keys(errors)).toEqual([key]);
+    expect(errors[key]).toMatch(/unsupported hidden characters/);
+  });
+
+  it.each(["\u0001", "\u0008", "\u000B", "\u000C", "\u001B", "\u001F", "\u007F"])(
+    "rejects other control characters in free text (%j)",
+    (ch) => {
+      const p = validPayload();
+      p.project.description = `Idea${ch}here`;
+      expect(Object.keys(validateEnquiry(p))).toEqual(["project.description"]);
+    },
+  );
+
+  it("rejects an unpaired surrogate (broken Unicode) in free text", () => {
+    const p = validPayload();
+    p.contact.additionalInfo = "half an emoji: \uD83D";
+    expect(Object.keys(validateEnquiry(p))).toEqual(["contact.additionalInfo"]);
+  });
+
+  it("accepts tabs and line breaks in multi-line fields", () => {
+    const p = validPayload();
+    p.project.description = "Line one\nLine two\r\nLine three\twith a tab";
+    p.contact.additionalInfo = "Call after 6pm.\nThanks!";
+    expect(validateEnquiry(p)).toEqual({});
+  });
+
+  it("accepts Hindi and other Unicode text, including emoji and Indic joiners, in every free-text field", () => {
+    const p = validPayload();
+    p.project.description = "हम आम का एनर्जी ड्रिंक बनाना चाहते हैं 🥭 — क्‍ष क्‌ष";
+    p.manufacturing.expectedVolume = "लगभग 10,000 कैन प्रति माह";
+    p.contact.additionalInfo = "धन्यवाद! Crème & café “quotes” ₹ ✓";
+    p.contact.name = "राहुल शर्मा";
+    p.contact.company = "शर्मा बेवरेजेज़ प्रा. लि.";
+    expect(validateEnquiry(p)).toEqual({});
+  });
+
+  it("does not alter accepted text: sanitizing keeps Unicode, tabs and line breaks byte-for-byte", () => {
+    const text = "नमस्ते\n\tLine 2 🥤 क्‍ष";
+    const result = sanitizeEnquiryPayload({ ...validPayload(), project: { category: "other", stage: "idea", description: text } });
+    expect(result.project.description).toBe(text);
+  });
+
+  it("keeps the existing messages for the existing rules", () => {
+    const p = validPayload();
+    p.contact.email = "not-an-email";
+    p.contact.phone = "123";
+    expect(validateEnquiry(p)).toEqual({
+      "contact.email": "Enter a valid email address.",
+      "contact.phone": "Enter a valid phone number, including country code.",
+    });
+  });
+
+  it("everything that passes validation is storable: no NUL and no unpaired surrogate reaches the JSON payload", () => {
+    const candidates: string[] = [];
+    for (let c = 0; c <= 0x7f; c++) candidates.push(String.fromCharCode(c));
+    candidates.push("\uD800", "\uDFFF", "\uD83D\uDE00", "क्‍ष");
+    for (const ch of candidates) {
+      const p = validPayload();
+      p.project.description = `x${ch}y`;
+      if (Object.keys(validateEnquiry(p)).length > 0) continue;
+      const json = JSON.stringify(p);
+      // JSON.stringify writes NUL as the escape text \u0000 (never a raw NUL byte).
+      expect([JSON.stringify(ch), /\\u0000/.test(json)]).toEqual([JSON.stringify(ch), false]);
+      // JSON.stringify writes a surrogate as an escape only when it is unpaired.
+      expect([JSON.stringify(ch), /\\ud[89a-f][0-9a-f]{2}/i.test(json)]).toEqual([JSON.stringify(ch), false]);
+    }
+  });
+});
