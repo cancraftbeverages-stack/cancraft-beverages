@@ -138,8 +138,8 @@ notification email. Verified in `lib/enquiry/store.test.ts` and `app/api/enquiry
 
 | Scenario | Behavior |
 |---|---|
-| Database write fails | 500, existing failure UI (Retry / WhatsApp / Call), email never attempted. |
-| Email fails, DB succeeded | **200 to the user** — the enquiry was durably captured. Failure logged server-side with the enquiry id only (`[enquiry] notification email not sent for <id>: <reason>`). `email_notified_at` stays NULL. |
+| Database write fails | 500, existing failure UI (Retry / WhatsApp / Call), customer notification email never attempted. **Also:** one scrubbed Sentry report and one fail-safe internal alert email with no customer data (§3.9). |
+| Email fails, DB succeeded | **200 to the user** — the enquiry was durably captured. Failure logged server-side with the enquiry id only (`[enquiry] notification email not sent for <id>: <reason>`). `email_notified_at` stays NULL. Also reported to Sentry as a warning (§3.9). |
 | `DATABASE_URL` missing in production | The store throws immediately on every save (`UnconfiguredEnquiryStore`) — same 500/failure-UI path as a real database error. Never silently drops a submission, never falls back to a local file that wouldn't survive a redeploy. |
 | Duplicate/retried submission | Second `save()` call returns `{ inserted: false }`; no second email is sent; response is still 200. |
 
@@ -186,6 +186,29 @@ best-effort side effect in `app/api/enquiry/route.ts`, alongside the email step 
 call it after a successful `save()`, never let its failure affect the response the user already
 succeeded at, log failures with the enquiry id only. No architectural change needed; this was the
 explicit design goal of keeping the store/email split the way it is.
+
+### 3.9 Failure monitoring and alerting
+
+| Part | Where | What it does |
+|---|---|---|
+| Sentry, server only | `lib/monitoring/monitor.ts` | Reports save failures (`persist`), notification-email failures (`notification_email`), failures to record `email_notified_at` (`mark_notified`) and fail-safe alert failures (`failure_alert`). **Disabled unless `SENTRY_DSN` is set.** |
+| Fail-safe alert email | `lib/enquiry/failureAlert.ts` | When a save fails, emails the internal mailbox (`ENQUIRY_NOTIFICATION_EMAIL`) with only the time, reference id and category |
+| Health check | `GET /api/health` (`lib/health.ts`) | `{"status":"ok"}` 200, or `{"status":"degraded"}` 503 in production when storage or email is not configured |
+
+**Privacy rules (tested):**
+- Sentry receives only a new error whose message is a **fixed category plus the Postgres SQLSTATE code** (for example `Enquiry persist failed: network` or `… constraint_violation (SQLSTATE 23505)`). **The original error text is never sent**, because Postgres errors can echo row values such as names. It also gets the code-location lines of the stack (scrubbed) and three tags: stage, enquiry id (UUID only) and category (slug only).
+- `sendDefaultPii` is off; default integrations, breadcrumbs and tracing are off; `beforeSend` deletes request, user, extra, contexts, breadcrumbs, server name, unknown tags and stack-frame variables.
+- The alert email has no Reply-To and no customer fields; its input type cannot carry them.
+- Failure log lines use the same category + SQLSTATE summary, never the raw error.
+- Verified against the real SDK: `lib/monitoring/monitor.sentry.test.ts` captures the actual envelope on a local server and checks it for personal data and credentials.
+
+**No storms, no retries:** the alert is one attempt, with a 5-second timeout. There's at most one alert per enquiry id, and at most one per 15 minutes per server instance; suppressed failures are counted in the next alert. The original 500 response is never changed, and an alert that cannot be sent is logged and reported to Sentry.
+
+**Limitation:** if Resend itself is down, the alert email cannot be sent. That's why Sentry is reported independently.
+
+**Uptime monitor (proposed, not yet created):** poll `https://www.cancraftbeverages.com/api/health` (expect 200 and `"ok"`) and `https://www.cancraftbeverages.com/` (expect 200) every 5 minutes, alerting the internal mailbox. The health check deliberately does **not** query the database: polling would keep the Neon compute awake (no scale-to-zero) and expose a public way to load the database.
+
+**Local development:** with `EMAIL_API_KEY` and `EMAIL_FROM_ADDRESS` set in `.env.local`, a local save failure sends a real alert email. Leave `SENTRY_DSN` unset locally.
 
 ---
 

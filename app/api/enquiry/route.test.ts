@@ -14,6 +14,16 @@ vi.mock("@/lib/enquiry/email", () => ({
   sendEnquiryNotification: (...args: unknown[]) => mockSendEnquiryNotification(...args),
 }));
 
+const mockSendFailureAlert = vi.fn();
+vi.mock("@/lib/enquiry/failureAlert", () => ({
+  sendEnquiryFailureAlert: (...args: unknown[]) => mockSendFailureAlert(...args),
+}));
+
+const mockReportFailure = vi.fn();
+vi.mock("@/lib/monitoring/monitor", () => ({
+  reportEnquiryFailure: (...args: unknown[]) => mockReportFailure(...args),
+}));
+
 const { POST } = await import("./route");
 
 function validBody(overrides: Record<string, unknown> = {}) {
@@ -53,6 +63,10 @@ describe("POST /api/enquiry", () => {
     mockSendEnquiryNotification.mockReset();
     mockSave.mockResolvedValue({ inserted: true });
     mockSendEnquiryNotification.mockResolvedValue({ sent: true });
+    mockSendFailureAlert.mockReset();
+    mockSendFailureAlert.mockResolvedValue({ sent: true });
+    mockReportFailure.mockReset();
+    mockReportFailure.mockResolvedValue(undefined);
   });
 
   it("1. accepts a valid submission: 200, saves, and sends the notification", async () => {
@@ -250,6 +264,104 @@ describe("POST /api/enquiry", () => {
       expect(logged).not.toContain("google.com");
       expect(logged).not.toContain("linkedin.com");
       logSpy.mockRestore();
+    });
+  });
+
+  describe("failure monitoring and fail-safe alert", () => {
+    const ID = "2f0e6f1a-4b8b-4c1a-9c2e-1a2b3c4d5e6f";
+    const PII = ["Jane Doe", "jane@example.com", "+919999999999", "Test Co"];
+    const FAILURE_BODY = { ok: false, errors: { form: "Something went wrong on our end. Please try again." } };
+    const quiet = () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.spyOn(console, "log").mockImplementation(() => {});
+    };
+    afterEach(() => vi.restoreAllMocks());
+
+    it("16. successful submission: no Sentry report, no failure alert", async () => {
+      const res = await POST(request(validBody({ id: ID })));
+      expect(res.status).toBe(200);
+      expect(mockReportFailure).not.toHaveBeenCalled();
+      expect(mockSendFailureAlert).not.toHaveBeenCalled();
+    });
+
+    it("17. database failure: original 500 response, one Sentry report and one alert, neither with personal data", async () => {
+      quiet();
+      mockSave.mockRejectedValue(new Error("insert failed for jane@example.com at postgresql://u:npg_x@h/db"));
+      const res = await POST(request(validBody({ id: ID })));
+
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual(FAILURE_BODY);
+      expect(mockSendEnquiryNotification).not.toHaveBeenCalled();
+      expect(mockReportFailure).toHaveBeenCalledTimes(1);
+      expect(mockReportFailure.mock.calls[0]![0]).toBe("persist");
+      expect(mockReportFailure.mock.calls[0]![2]).toEqual({ enquiryId: ID, category: "energy-drinks" });
+      expect(mockSendFailureAlert).toHaveBeenCalledTimes(1);
+      const alertArg = mockSendFailureAlert.mock.calls[0]![0];
+      expect(Object.keys(alertArg).sort()).toEqual(["category", "enquiryId", "occurredAt"]);
+      const sentText = JSON.stringify([mockSendFailureAlert.mock.calls, mockReportFailure.mock.calls[0]![2]]);
+      for (const value of PII) expect(sentText).not.toContain(value);
+    });
+
+    it("18. database failure is logged scrubbed (no connection string or email in logs)", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      mockSave.mockRejectedValue(new Error("failed for jane@example.com at postgresql://u:npg_x@h/db"));
+      await POST(request(validBody({ id: ID })));
+      const logged = errorSpy.mock.calls.flat().join(" ");
+      expect(logged).toContain("[enquiry] failed to persist submission");
+      expect(logged).not.toContain("jane@example.com");
+      expect(logged).not.toContain("npg_x");
+    });
+
+    it("19. alert failure does not hide the database error: still 500, and the alert failure is reported too", async () => {
+      quiet();
+      mockSave.mockRejectedValue(new Error("db down"));
+      mockSendFailureAlert.mockResolvedValue({ sent: false, reason: "provider-error" });
+      const res = await POST(request(validBody({ id: ID })));
+
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual(FAILURE_BODY);
+      expect(mockReportFailure.mock.calls.map((c) => c[0]).sort()).toEqual(["failure_alert", "persist"]);
+    });
+
+    it("20. a throwing alert or monitor still returns the original 500", async () => {
+      quiet();
+      mockSave.mockRejectedValue(new Error("db down"));
+      mockSendFailureAlert.mockRejectedValue(new Error("resend exploded"));
+      mockReportFailure.mockRejectedValue(new Error("sentry exploded"));
+      const res = await POST(request(validBody({ id: ID })));
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual(FAILURE_BODY);
+    });
+
+    it("21. a suppressed or duplicate alert is not reported as an alert failure", async () => {
+      quiet();
+      mockSave.mockRejectedValue(new Error("db down"));
+      mockSendFailureAlert.mockResolvedValue({ sent: false, reason: "suppressed" });
+      await POST(request(validBody({ id: ID })));
+      expect(mockReportFailure.mock.calls.map((c) => c[0])).toEqual(["persist"]);
+    });
+
+    it("22. email failure after a successful save: 200, Sentry warning, no failure alert, no personal data", async () => {
+      quiet();
+      mockSendEnquiryNotification.mockResolvedValue({ sent: false, reason: "domain not verified" });
+      const res = await POST(request(validBody({ id: ID })));
+
+      expect(res.status).toBe(200);
+      expect(mockSendFailureAlert).not.toHaveBeenCalled();
+      expect(mockReportFailure).toHaveBeenCalledTimes(1);
+      const [stage, error, context] = mockReportFailure.mock.calls[0]!;
+      expect(stage).toBe("notification_email");
+      expect((error as Error).message).toContain("domain not verified");
+      expect(context).toEqual({ enquiryId: ID, category: "energy-drinks" });
+      for (const value of PII) expect(JSON.stringify([String(error), context])).not.toContain(value);
+    });
+
+    it("23. failure to record email_notified_at is reported but still returns 200", async () => {
+      quiet();
+      mockMarkEmailNotified.mockRejectedValue(new Error("db blip"));
+      const res = await POST(request(validBody({ id: ID })));
+      expect(res.status).toBe(200);
+      expect(mockReportFailure.mock.calls.map((c) => c[0])).toEqual(["mark_notified"]);
     });
   });
 });

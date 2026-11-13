@@ -6,6 +6,9 @@ import { sendEnquiryNotification } from "@/lib/enquiry/email";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { sanitizeAttribution } from "@/lib/attribution/attribution";
 import type { StoredEnquiry } from "@/lib/enquiry/types";
+import { sendEnquiryFailureAlert } from "@/lib/enquiry/failureAlert";
+import { reportEnquiryFailure } from "@/lib/monitoring/monitor";
+import { errorSummaryText } from "@/lib/monitoring/scrub";
 
 // Node.js runtime required — the store writes to Postgres (and, in local
 // dev without DATABASE_URL, to the local filesystem).
@@ -75,7 +78,9 @@ export async function POST(request: Request) {
   } catch (error) {
     // Never send a notification for an enquiry that was not durably
     // stored — this catch returns before any email is attempted.
-    console.error(`[enquiry] failed to persist submission ${record.id}`, error);
+    // Logged as a category + SQLSTATE only: a driver error can echo a connection string or row values.
+    console.error(`[enquiry] failed to persist submission ${record.id}: ${errorSummaryText(error)}`);
+    await handlePersistFailure(error, record);
     return NextResponse.json(
       { ok: false, errors: { form: "Something went wrong on our end. Please try again." } },
       { status: 500 },
@@ -100,17 +105,49 @@ export async function POST(request: Request) {
         // The email was genuinely accepted by the provider — losing this
         // timestamp update is a minor observability gap, not a reason to
         // fail the response the user already succeeded at.
-        console.error(`[enquiry] failed to record email_notified_at for ${record.id}`, error);
+        console.error(`[enquiry] failed to record email_notified_at for ${record.id}: ${errorSummaryText(error)}`);
+        await reportEnquiryFailure("mark_notified", error, monitorContext(record));
       }
     } else {
       // Failure is logged with the id only — never the email/phone/name
       // this would otherwise require, and never the email provider's raw
       // error payload if it could ever echo request content.
-      console.error(`[enquiry] notification email not sent for ${record.id}: ${emailResult.reason}`);
+      console.error(`[enquiry] notification email not sent for ${record.id}: ${errorSummaryText(emailResult.reason)}`);
+      // "not-configured" is reported too: in production it means leads are not being notified.
+      await reportEnquiryFailure(
+        "notification_email",
+        new Error(`Notification email not sent: ${emailResult.reason}`),
+        monitorContext(record),
+      );
     }
   }
 
   // Database success + email failure (or email being unconfigured) must
   // still return success — the enquiry was durably captured either way.
   return NextResponse.json({ ok: true, id: record.id }, { status: 200 });
+}
+
+function monitorContext(record: StoredEnquiry) {
+  return { enquiryId: record.id, category: record.project.category };
+}
+
+/**
+ * Runs after a failed save, before the (unchanged) 500 response is returned:
+ * reports the error to Sentry and sends one fail-safe internal alert email.
+ * Neither step can throw, retry, or change the response; an alert that cannot
+ * be sent is itself logged and reported, so the original database error is
+ * never hidden.
+ */
+async function handlePersistFailure(error: unknown, record: StoredEnquiry): Promise<void> {
+  const context = monitorContext(record);
+  await Promise.allSettled([
+    reportEnquiryFailure("persist", error, context),
+    (async () => {
+      const alert = await sendEnquiryFailureAlert({ ...context, occurredAt: new Date().toISOString() });
+      if (!alert.sent && alert.reason !== "duplicate" && alert.reason !== "suppressed") {
+        console.error(`[enquiry] failure alert not sent for ${record.id}: ${alert.reason}`);
+        await reportEnquiryFailure("failure_alert", new Error(`Failure alert not sent: ${alert.reason}`), context);
+      }
+    })(),
+  ]);
 }
