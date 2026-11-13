@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { sanitizeEnquiryPayload, validateEnquiry } from "./validate";
 import { emptyEnquiryPayload } from "./types";
 import type { EnquiryPayload } from "./types";
+import { launchTimelineOptions } from "@/content/enquiryOptions";
 
 function validPayload(): EnquiryPayload {
   return {
@@ -195,5 +196,48 @@ describe("unsupported hidden characters (control characters, broken Unicode)", (
       // JSON.stringify writes a surrogate as an escape only when it is unpaired.
       expect([JSON.stringify(ch), /\\ud[89a-f][0-9a-f]{2}/i.test(json)]).toEqual([JSON.stringify(ch), false]);
     }
+  });
+});
+
+describe("launch timeline (optional, fixed list)", () => {
+  const withTimeline = (value: string) => {
+    const p = validPayload();
+    p.manufacturing.launchTimeline = value as never;
+    return validateEnquiry(p) as Record<string, string>;
+  };
+
+  it.each(["as-soon-as-possible", "1-3-months", "3-6-months", "just-exploring"])("accepts %s", (value) => {
+    expect(withTimeline(value)).toEqual({});
+  });
+
+  it("accepts an empty value (the field is optional)", () => {
+    expect(withTimeline("")).toEqual({});
+  });
+
+  it("the accepted values are exactly the form's options", () => {
+    expect(launchTimelineOptions.map((o) => o.value)).toEqual([
+      "as-soon-as-possible",
+      "1-3-months",
+      "3-6-months",
+      "just-exploring",
+    ]);
+  });
+
+  it.each(["next-week", "1–3 months", "As soon as possible", "1-3-months ", " 1-3-months", "जल्द ही", "unknown"])(
+    "rejects %j with the list message",
+    (value) => {
+      expect(withTimeline(value)).toEqual({
+        "manufacturing.launchTimeline": "Select a launch timeline from the list.",
+      });
+    },
+  );
+
+  it("gives the hidden-character message priority over the list message", () => {
+    expect(withTimeline("1-3-months\u0000")).toEqual({
+      "manufacturing.launchTimeline": "Launch timeline contains unsupported hidden characters. Please retype it.",
+    });
+    expect(withTimeline("\uD800")).toEqual({
+      "manufacturing.launchTimeline": "Launch timeline contains unsupported hidden characters. Please retype it.",
+    });
   });
 });

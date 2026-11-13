@@ -3,6 +3,7 @@ import { hasUnsupportedCharacters } from "@/lib/text/unsupportedCharacters";
 import {
   canSizeOptions,
   formulationStatusOptions,
+  launchTimelineOptions,
   projectCategoryOptions,
   projectStageOptions,
   serviceOptions,
@@ -23,6 +24,7 @@ const categoryValues = new Set(projectCategoryOptions.map((o) => o.value));
 const stageValues = new Set(projectStageOptions.map((o) => o.value));
 const formulationValues = new Set(formulationStatusOptions.map((o) => o.value));
 const canSizeValues = new Set(canSizeOptions.map((o) => o.value));
+const launchTimelineValues = new Set<string>(launchTimelineOptions.map((o) => o.value));
 const serviceValues = new Set(serviceOptions.map((o) => o.value));
 
 function digitCount(value: string) {
@@ -67,9 +69,14 @@ export function validateEnquiry(payload: EnquiryPayload): EnquiryFieldErrors {
   if (hasUnsupportedCharacters(payload.manufacturing.expectedVolume)) {
     errors["manufacturing.expectedVolume"] = unsupportedCharacters("Expected volume");
   }
-  // Chosen from a fixed list in the form; only a crafted request can carry these.
-  if (hasUnsupportedCharacters(payload.manufacturing.launchTimeline)) {
+  // Optional, chosen from a fixed list in the form: empty or one of the listed
+  // values. Anything else can only come from a crafted request. The
+  // hidden-character message takes priority over the list message.
+  const timeline = payload.manufacturing.launchTimeline;
+  if (hasUnsupportedCharacters(timeline)) {
     errors["manufacturing.launchTimeline"] = unsupportedCharacters("Launch timeline");
+  } else if (timeline !== "" && !launchTimelineValues.has(timeline)) {
+    errors["manufacturing.launchTimeline"] = "Select a launch timeline from the list.";
   }
   if (hasUnsupportedCharacters(payload.contact.additionalInfo)) {
     errors["contact.additionalInfo"] = unsupportedCharacters("Additional information");

@@ -283,3 +283,23 @@ describe("EnquiryForm unsupported hidden characters", () => {
     expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 });
+
+describe("EnquiryForm launch timeline options", () => {
+  it.each(["as-soon-as-possible", "1-3-months", "3-6-months", "just-exploring"])(
+    "choosing the form's own option %s passes the Manufacturing step",
+    async (value) => {
+      await render();
+      await choose("project-category-other");
+      await choose("project-stage-idea");
+      await pressPrimary("Continue");
+      await choose("formulation-status-have-formulation");
+      await pressPrimary("Continue");
+      expect(heading()).toBe("Manufacturing");
+      await choose("manufacturing-can-size-250");
+      await choose(`manufacturing-launch-timeline-${value}`);
+      await pressPrimary("Continue");
+      expect(heading()).toBe("Services");
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+    },
+  );
+});

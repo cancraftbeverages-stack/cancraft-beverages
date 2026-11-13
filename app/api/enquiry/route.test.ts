@@ -428,4 +428,38 @@ describe("POST /api/enquiry", () => {
       expect(saved.contact).toEqual(contact);
     });
   });
+  describe("launch timeline must be empty or a listed option", () => {
+    afterEach(() => vi.restoreAllMocks());
+    const withTimeline = (launchTimeline: string) =>
+      validBody({ manufacturing: { canSize: "250", expectedVolume: "", launchTimeline } });
+
+    it.each(["", "as-soon-as-possible", "1-3-months", "3-6-months", "just-exploring"])(
+      "28. accepts %j: 200 and saved unchanged",
+      async (value) => {
+        const res = await POST(request(withTimeline(value)));
+        expect(res.status).toBe(200);
+        const saved = mockSave.mock.calls[0]![0] as { manufacturing: { launchTimeline: string } };
+        expect(saved.manufacturing.launchTimeline).toBe(value);
+      },
+    );
+
+    it.each(["next-week", "1-3-months ", "जल्द ही"])("29. rejects %j: 400, nothing saved, alerted or emailed", async (value) => {
+      const res = await POST(request(withTimeline(value)));
+      expect(res.status).toBe(400);
+      expect((await res.json()).errors).toEqual({
+        "manufacturing.launchTimeline": "Select a launch timeline from the list.",
+      });
+      expect(mockSave).not.toHaveBeenCalled();
+      expect(mockSendEnquiryNotification).not.toHaveBeenCalled();
+      expect(mockSendFailureAlert).not.toHaveBeenCalled();
+      expect(mockReportFailure).not.toHaveBeenCalled();
+    });
+
+    it("30. a NUL in the launch timeline gets the hidden-character error, not the list error", async () => {
+      const res = await POST(request(withTimeline("3-6-months\u0000")));
+      expect(res.status).toBe(400);
+      expect((await res.json()).errors["manufacturing.launchTimeline"]).toMatch(/unsupported hidden characters/);
+      expect(mockSave).not.toHaveBeenCalled();
+    });
+  });
 });
