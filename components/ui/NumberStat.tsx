@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { observeOnceInView } from "@/lib/inView";
 import { cn } from "@/lib/utils";
 
 type NumberStatProps = {
@@ -14,50 +14,58 @@ type NumberStatProps = {
   className?: string;
 };
 
+const COUNT_DURATION_MS = 900;
+
+function prefersReducedMotion() {
+  return (
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 /**
- * Counts up from 0 to `value` once it scrolls into view. Skips the
- * animation for reduced motion.
+ * Counts up from 0 to `value` once it scrolls into view (900ms, ease-out cubic).
  *
- * Uses <motion.span onViewportEnter> (the same viewport-tracking code path
- * as <Reveal />'s whileInView) rather than the standalone useInView hook —
- * the two rely on different internal IntersectionObserver setups, and only
- * the whileInView/onViewportEnter path reliably fires in this app.
+ * The server HTML carries the real number, so it is correct without JavaScript. Once the page is
+ * running it resets to 0 and counts up the first time any part of it enters the viewport (the
+ * stat sits inside a <RevealItem>, which is still hidden at that point). With reduced motion it
+ * simply keeps showing the real number.
  */
 export function NumberStat({ value, prefix = "", suffix = "", className }: NumberStatProps) {
-  const prefersReducedMotion = useReducedMotion();
-  const [display, setDisplay] = useState(prefersReducedMotion ? value : 0);
-  const hasAnimated = useRef(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const [display, setDisplay] = useState(value);
 
-  const handleViewportEnter = () => {
-    if (hasAnimated.current) return;
-    hasAnimated.current = true;
-
-    if (prefersReducedMotion) {
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || prefersReducedMotion()) {
       setDisplay(value);
       return;
     }
 
-    const durationMs = 900;
-    const start = performance.now();
+    let frame = 0;
+    setDisplay(0);
+    const stopObserving = observeOnceInView(element, () => {
+      const start = performance.now();
+      const tick = (now: number) => {
+        const progress = Math.min((now - start) / COUNT_DURATION_MS, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setDisplay(Math.round(eased * value));
+        if (progress < 1) frame = requestAnimationFrame(tick);
+      };
+      frame = requestAnimationFrame(tick);
+    });
 
-    const tick = (now: number) => {
-      const progress = Math.min((now - start) / durationMs, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(Math.round(eased * value));
-      if (progress < 1) requestAnimationFrame(tick);
+    return () => {
+      stopObserving();
+      cancelAnimationFrame(frame);
     };
-    requestAnimationFrame(tick);
-  };
+  }, [value]);
 
   return (
-    <motion.span
-      className={cn("tabular-nums", className)}
-      onViewportEnter={handleViewportEnter}
-      viewport={{ once: true, amount: "some" }}
-    >
+    <span ref={ref} className={cn("tabular-nums", className)}>
       {prefix}
       {display}
       {suffix}
-    </motion.span>
+    </span>
   );
 }

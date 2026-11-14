@@ -3,21 +3,45 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import { primaryNav, startProjectHref } from "@/content/navigation";
 import { Button } from "@/components/ui/Button";
 import { CallLink } from "@/components/ui/CallLink";
 import { WhatsAppLink } from "@/components/ui/WhatsAppLink";
 import { cn } from "@/lib/utils";
 
+/** Matches the .mobile-nav transition in app/globals.css. */
+const MENU_TRANSITION_MS = 250;
+
 export function SiteHeader() {
   const pathname = usePathname();
+  // menuOpen is what the visitor asked for. The menu stays in the page while it animates closed
+  // (menuPresent) and is removed afterwards, so a closed menu is not in the page at all, as before.
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPresent, setMenuPresent] = useState(false);
+  const [menuExpanded, setMenuExpanded] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (menuOpen) {
+      setMenuPresent(true);
+      return;
+    }
+    setMenuExpanded(false);
+    const timer = window.setTimeout(() => setMenuPresent(false), MENU_TRANSITION_MS);
+    return () => window.clearTimeout(timer);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen || !menuPresent) return;
+    // Let the browser register the collapsed state first, so the opening transition runs.
+    menuRef.current?.getBoundingClientRect();
+    setMenuExpanded(true);
+  }, [menuOpen, menuPresent]);
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";
@@ -107,16 +131,14 @@ export function SiteHeader() {
         </button>
       </div>
 
-      <AnimatePresence>
-        {menuOpen ? (
-          <motion.div
-            id="mobile-nav"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden border-t border-steel-600/20 bg-ink-950 xl:hidden"
-          >
+      {menuPresent ? (
+        <div
+          id="mobile-nav"
+          ref={menuRef}
+          data-state={menuExpanded ? "open" : "closed"}
+          className="mobile-nav grid overflow-hidden border-t border-steel-600/20 bg-ink-950 xl:hidden"
+        >
+          <div className="min-h-0">
             <nav aria-label="Mobile primary" className="flex flex-col gap-1 px-6 py-4">
               {primaryNav.map((link) => (
                 <Link
@@ -139,9 +161,9 @@ export function SiteHeader() {
                 Start
               </Button>
             </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }

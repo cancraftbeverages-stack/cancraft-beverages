@@ -60,6 +60,76 @@
   }
 }
 
+/*
+ * Scroll reveals (Batch 1.2): <Reveal>, <RevealGroup> and <RevealItem> in components/ui/Reveal.tsx.
+ * Same look as the previous Framer Motion version: fade + 24px rise (fade-up) or 16px rise +
+ * 0.94 scale (scale-up), 0.5s on the site's confident curve, group items staggered by a
+ * --reveal-delay the group sets (0.05s + 0.08s per item).
+ *
+ * - The hidden state only exists when the browser runs scripts, so without JavaScript all content
+ *   is visible.
+ * - If scripts run but the page's JavaScript never starts, a 4s fallback animation shows the
+ *   content. Once the component starts it marks the element "armed" (fallback off, waiting to
+ *   scroll into view) and then "shown".
+ * - With reduced motion there is no hidden state and no animation: content is simply there.
+ */
+[data-reveal="fade-up"],
+[data-reveal-item="fade-up"] {
+  --reveal-from: translateY(24px);
+}
+
+[data-reveal="scale-up"],
+[data-reveal-item="scale-up"] {
+  --reveal-from: translateY(16px) scale(0.94);
+}
+
+@keyframes reveal-fallback {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  [data-reveal],
+  [data-reveal-item] {
+    opacity: 0;
+    transform: var(--reveal-from);
+    transition:
+      opacity 500ms cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+      transform 500ms cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+    animation: reveal-fallback 1ms linear 4s forwards;
+  }
+
+  [data-reveal][data-reveal-state],
+  [data-reveal-group][data-reveal-state] [data-reveal-item] {
+    animation: none;
+  }
+
+  [data-reveal][data-reveal-state="shown"],
+  [data-reveal-group][data-reveal-state="shown"] [data-reveal-item] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Mobile menu (SiteHeader): opens and closes with a 250ms fade and height change. Height uses the
+ * grid-rows 0fr -> 1fr technique so it can animate to the content's natural height.
+ */
+.mobile-nav {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 250ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 250ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mobile-nav[data-state="open"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
 @layer utilities {
   .hero-rise {
     animation: hero-rise 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
