@@ -1,24 +1,25 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, type CSSProperties } from "react";
-import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "framer-motion";
+import { useRef, type CSSProperties, type RefObject } from "react";
 import { HeroCtas } from "@/components/marketing/ContentBlocks";
 import { PageShell } from "@/components/layout/PageShell";
 import { ProofStrip } from "@/components/marketing/ProofStrip";
+import { useScrollParallax } from "@/lib/useScrollParallax";
 
 /**
  * Hero media layer — beverage manufacturing equipment (water treatment/RO
  * skid). Alt text stays descriptive and makes no ownership or capability
  * claim until photo provenance is confirmed.
  * Headline/CTA/proof strip live in a separate stacking layer above it.
- * `y`/`scale` drive a subtle scroll-linked parallax + zoom (no-op values
- * when reduced motion is preferred — see Hero()).
+ * The wrapper gets a subtle scroll-linked parallax + zoom from
+ * useScrollParallax (lib/useScrollParallax.ts); it stays still when reduced
+ * motion is preferred or JavaScript does not run.
  */
-function HeroMedia({ y, scale }: { y: MotionValue<number>; scale: MotionValue<number> }) {
+function HeroMedia({ mediaRef }: { mediaRef: RefObject<HTMLDivElement | null> }) {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <motion.div className="absolute inset-0" style={{ y, scale }}>
+      <div ref={mediaRef} className="absolute inset-0">
         <Image
           src="/media/facility/hero-production.jpg"
           alt="Beverage manufacturing equipment"
@@ -27,7 +28,7 @@ function HeroMedia({ y, scale }: { y: MotionValue<number>; scale: MotionValue<nu
           sizes="100vw"
           className="object-cover"
         />
-      </motion.div>
+      </div>
       <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/70 to-ink-950/20" />
     </div>
   );
@@ -51,14 +52,9 @@ function HeadlineLine({ children, delayMs }: { children: string; delayMs: number
 }
 
 export function Hero() {
-  const prefersReducedMotion = useReducedMotion();
   const sectionRef = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ["start start", "end start"],
-  });
-  const y = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, 110]);
-  const scale = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [1, 1] : [1, 1.15]);
+  const mediaRef = useRef<HTMLDivElement>(null);
+  useScrollParallax(sectionRef, mediaRef);
 
   // Entrance: CSS transform-only rise (.hero-rise), staggered as before (0 / 400 / 480 / 560 ms).
   // Text is visible from first paint — no opacity:0 server-rendered state.
@@ -67,7 +63,7 @@ export function Hero() {
       ref={sectionRef}
       className="relative isolate overflow-hidden bg-ink-950 text-paper-50"
     >
-      <HeroMedia y={y} scale={scale} />
+      <HeroMedia mediaRef={mediaRef} />
 
       <PageShell className="relative flex min-h-[88vh] flex-col justify-end pb-16 pt-40 sm:min-h-[92vh] lg:pt-48">
         <p className="hero-rise mb-5 text-xs font-semibold uppercase tracking-eyebrow text-accent-500">
