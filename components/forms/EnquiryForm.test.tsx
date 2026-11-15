@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // @vitest-environment-options {"url": "https://cancraftbeverages.com/start-your-project"}
-import { act, forwardRef, type ReactNode } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ATTRIBUTION_KEY, SESSION_KEY, type StoredAttributionState } from "@/lib/attribution/attribution";
@@ -12,20 +12,10 @@ import { EnquiryForm } from "./EnquiryForm";
  * EnquiryForm wiring, rendered for real in jsdom with the real step components, attribution code and
  * analytics signal. Nothing leaves the test: fetch is a mock in every test, GoogleAnalytics is never
  * rendered (no gtag, no script), and the enquiry API, database and email service are never reached.
- * framer-motion is replaced by plain elements so step changes are immediate (test-only).
+ * The browser reports "reduced motion" here, so step changes are immediate (StepTransition swaps
+ * instantly); the animated path is covered by the "step transitions" tests below.
  */
-vi.mock("framer-motion", () => {
-  const strip = ({ initial, animate, exit, transition, ...rest }: Record<string, unknown>) => rest;
-  return {
-    AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
-    motion: {
-      div: forwardRef<HTMLDivElement, Record<string, unknown>>(function MotionDiv(props, ref) {
-        return <div ref={ref} {...strip(props)} />;
-      }),
-    },
-    useReducedMotion: () => true,
-  };
-});
+let reduceMotion = true;
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -52,6 +42,13 @@ beforeEach(() => {
     throw new Error("fetch called without a test response");
   });
   vi.stubGlobal("fetch", fetchMock);
+  reduceMotion = true;
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    media: query,
+    matches: reduceMotion && query.includes("reduce"),
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -302,4 +299,161 @@ describe("EnquiryForm launch timeline options", () => {
       expect(container.querySelector('[role="alert"]')).toBeNull();
     },
   );
+});
+
+describe("EnquiryForm step transitions (motion allowed)", () => {
+  // Real StepTransition with animations on. jsdom never fires animationend, so each phase ends on
+  // StepTransition's fallback timer, driven here with fake timers.
+  const content = () => container.querySelector<HTMLElement>("form h2 + div > div")!;
+  // Advance in small slices so timers React sets up after each phase change also run.
+  const advance = async (ms: number) => {
+    for (let t = 0; t < ms; t += 50) {
+      await act(async () => {
+        vi.advanceTimersByTime(Math.min(50, ms - t));
+      });
+    }
+  };
+  const STEP0 = "#project-category-other";
+  const STEP1 = "#formulation-status-have-formulation";
+
+  beforeEach(() => {
+    reduceMotion = false;
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("first render is not animated", async () => {
+    await render();
+    expect(content().className).toBe("");
+    expect(content().getAttribute("style")).toBeNull();
+  });
+
+  it("Continue: heading and focus move at once; the old step fades out, then the new one fades in", async () => {
+    await render();
+    await choose("project-category-other");
+    await choose("project-stage-idea");
+    await pressPrimary("Continue");
+
+    expect(heading()).toBe("Formulation");
+    expect(document.activeElement).toBe(container.querySelector("h2"));
+    expect(content().className).toBe("step-exit");
+    expect(container.querySelector(STEP0)).not.toBeNull(); // old step still showing while it exits
+
+    await advance(349);
+    expect(container.querySelector(STEP0)).not.toBeNull();
+    await advance(1);
+    expect(content().className).toBe("step-enter");
+    expect(container.querySelector(STEP0)).toBeNull();
+    expect(container.querySelector(STEP1)).not.toBeNull();
+
+    await advance(350);
+    expect(content().className).toBe("");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("invalid Continue does not animate and focuses the error summary", async () => {
+    await render();
+    await pressPrimary("Continue");
+    expect(heading()).toBe("Beverage / Project");
+    expect(content().className).toBe("");
+    const summary = container.querySelector('[role="alert"]');
+    expect(summary).not.toBeNull();
+    expect(document.activeElement).toBe(summary);
+  });
+
+  it("keeps everything entered across Back and Review's Edit", async () => {
+    await render();
+    await choose("project-category-other");
+    await choose("project-stage-idea");
+    const area = container.querySelector<HTMLTextAreaElement>('textarea[name="project-description"]')!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!;
+    await act(async () => {
+      setter.call(area, "Mango energy drink");
+      area.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await pressPrimary("Continue");
+    await advance(700);
+    await choose("formulation-status-have-formulation");
+
+    // Back to step 1: earlier answers are still there.
+    const back = [...container.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Back")!;
+    await act(async () => back.click());
+    await advance(700);
+    expect(heading()).toBe("Beverage / Project");
+    expect(container.querySelector<HTMLInputElement>("#project-category-other")!.checked).toBe(true);
+    expect(container.querySelector<HTMLTextAreaElement>('textarea[name="project-description"]')!.value).toBe(
+      "Mango energy drink",
+    );
+
+    // On to Review, then Edit the Formulation step from there.
+    await pressPrimary("Continue");
+    await advance(700);
+    await pressPrimary("Continue");
+    await advance(700);
+    await choose("manufacturing-can-size-250");
+    await pressPrimary("Continue");
+    await advance(700);
+    await pressPrimary("Continue");
+    await advance(700);
+    await type("contact-name", FAKE_CONTACT.name);
+    await type("contact-company", FAKE_CONTACT.company);
+    await type("contact-email", FAKE_CONTACT.email);
+    await type("contact-phone", FAKE_CONTACT.phone);
+    await pressPrimary("Continue");
+    await advance(700);
+    expect(heading()).toBe("Review");
+    const edit = [...container.querySelectorAll("button")].find((b) => /Edit\s*Formulation/.test(b.textContent ?? ""))!;
+    await act(async () => edit.click());
+    await advance(700);
+    expect(heading()).toBe("Formulation");
+    expect(container.querySelector<HTMLInputElement>(STEP1)!.checked).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rapid Continue then Back ends on the latest step with no stale content or lost answers", async () => {
+    await render();
+    await choose("project-category-other");
+    await choose("project-stage-idea");
+    await pressPrimary("Continue");
+    await advance(100); // mid-exit
+    const back = [...container.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Back")!;
+    await act(async () => back.click());
+    expect(heading()).toBe("Beverage / Project");
+    await advance(700);
+    expect(content().className).toBe("");
+    expect(container.querySelector(STEP1)).toBeNull();
+    expect(container.querySelector<HTMLInputElement>("#project-category-other")!.checked).toBe(true);
+    expect(container.querySelector<HTMLInputElement>("#project-stage-idea")!.checked).toBe(true);
+  });
+
+  it("the complete six-step journey still submits once, with the animations on", async () => {
+    respond(200, { ok: true, id: "00000000-0000-4000-8000-000000000009" });
+    await render();
+    const step = async (fn: () => Promise<void>) => {
+      await fn();
+      await advance(700);
+    };
+    await choose("project-category-other");
+    await choose("project-stage-idea");
+    await step(() => pressPrimary("Continue"));
+    await choose("formulation-status-have-formulation");
+    await step(() => pressPrimary("Continue"));
+    await choose("manufacturing-can-size-250");
+    await step(() => pressPrimary("Continue"));
+    await step(() => pressPrimary("Continue"));
+    await type("contact-name", FAKE_CONTACT.name);
+    await type("contact-company", FAKE_CONTACT.company);
+    await type("contact-email", FAKE_CONTACT.email);
+    await type("contact-phone", FAKE_CONTACT.phone);
+    await step(() => pressPrimary("Continue"));
+    expect(heading()).toBe("Review");
+    await pressPrimary("Submit Project");
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    assertOnlyEnquiryApiCalled();
+    expect(count(ENQUIRY_SUBMIT_EVENT)).toBe(1);
+  });
 });

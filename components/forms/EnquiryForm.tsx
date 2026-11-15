@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { StepIndicator } from "@/components/forms/StepIndicator";
+import { StepTransition } from "@/components/forms/StepTransition";
 import { StepProject } from "@/components/forms/steps/StepProject";
 import { StepFormulation } from "@/components/forms/steps/StepFormulation";
 import { StepManufacturing } from "@/components/forms/steps/StepManufacturing";
@@ -14,7 +14,6 @@ import { EnquiryError } from "@/components/forms/EnquiryError";
 import { Button } from "@/components/ui/Button";
 import { validateEnquiry } from "@/lib/enquiry/validate";
 import { emptyEnquiryPayload } from "@/lib/enquiry/types";
-import { easeConfident } from "@/lib/motion";
 import { currentAttribution, noteFormStart } from "@/lib/attribution/browser";
 import { noteEnquirySubmitted } from "@/lib/analytics/ga";
 import type { EnquiryFieldErrors, EnquiryFieldKey, EnquiryPayload } from "@/lib/enquiry/types";
@@ -40,7 +39,6 @@ const stepFieldKeys: EnquiryFieldKey[][] = [
 type Status = "idle" | "submitting" | "success" | "error";
 
 export function EnquiryForm() {
-  const prefersReducedMotion = useReducedMotion();
   // Generated once per form session (including across a failed-then-retried
   // submit) so a retry sends the SAME id — the server's idempotent insert
   // (ON CONFLICT (id) DO NOTHING) then guarantees a retry never creates a
@@ -209,6 +207,27 @@ export function EnquiryForm() {
   const isReview = currentStep === stepLabels.length - 1;
   const isSubmitting = status === "submitting";
 
+  const renderStep = (step: number) => (
+    <>
+      {step === 0 && <StepProject value={payload.project} onChange={updateProject} errors={errors} />}
+      {step === 1 && (
+        <StepFormulation value={payload.formulation} onChange={updateFormulation} errors={errors} />
+      )}
+      {step === 2 && (
+        <StepManufacturing
+          value={payload.manufacturing}
+          onChange={updateManufacturing}
+          errors={errors}
+        />
+      )}
+      {step === 3 && <StepServices value={payload.services} onChange={updateServices} />}
+      {step === 4 && <StepContact value={payload.contact} onChange={updateContact} errors={errors} />}
+      {step === stepLabels.length - 1 && (
+        <StepReview payload={payload} onEditStep={handleEditStep} />
+      )}
+    </>
+  );
+
   return (
     <form onSubmit={handleFormSubmit} noValidate aria-label="Beverage project enquiry">
       <StepIndicator steps={stepLabels} currentIndex={currentStep} />
@@ -239,40 +258,8 @@ export function EnquiryForm() {
         </h2>
 
         <div className="mt-8">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={currentStep}
-              initial={{ opacity: 0, x: prefersReducedMotion ? 0 : 16 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: prefersReducedMotion ? 0 : -16 }}
-              transition={{ duration: 0.3, ease: easeConfident }}
-            >
-              {currentStep === 0 && (
-                <StepProject value={payload.project} onChange={updateProject} errors={errors} />
-              )}
-              {currentStep === 1 && (
-                <StepFormulation
-                  value={payload.formulation}
-                  onChange={updateFormulation}
-                  errors={errors}
-                />
-              )}
-              {currentStep === 2 && (
-                <StepManufacturing
-                  value={payload.manufacturing}
-                  onChange={updateManufacturing}
-                  errors={errors}
-                />
-              )}
-              {currentStep === 3 && (
-                <StepServices value={payload.services} onChange={updateServices} />
-              )}
-              {currentStep === 4 && (
-                <StepContact value={payload.contact} onChange={updateContact} errors={errors} />
-              )}
-              {isReview && <StepReview payload={payload} onEditStep={handleEditStep} />}
-            </motion.div>
-          </AnimatePresence>
+          {/* Step change animation: app/globals.css .step-exit / .step-enter. */}
+          <StepTransition step={currentStep} render={renderStep} />
         </div>
 
         <div
